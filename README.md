@@ -115,3 +115,9 @@ The three links under **You → Make it personal** now open dedicated card-based
 - Food preferences: balanced/vegetarian selection, up to 20 ingredient-word exclusions and a live matching-meal preview. Saving applies the filters to Meals. Exclusions match text in names/descriptions and are not verified allergy checks. Logged/planned meals are preserved.
 
 All three pages use explicit Save actions. Old diaries/backups continue to decode because new profile fields are optional; new fields are included in exported backups. Unit tests cover expanded-profile persistence, validation and meal-filter behavior. Visual/keyboard and file-dialog testing on actual phones remains required.
+
+## Personal editor layout refresh (0.3.1)
+
+Personal details, Goals & target and Food preferences share a persistent Save dock above the safe area. The profile page has an identity banner and numbered editing groups. Goals use compact direction tiles and a prominent calorie input with explicit ±50 controls. Food preferences use selected-style tiles, removable ingredient chips, quick-pick exclusions and a horizontally scrolling meal preview. Accessibility text sizes switch selection grids and previews to a single column. Supporting explanations are grouped under disclosure controls where appropriate.
+
+The existing validation, explicit-save transactions, backup compatibility and iOS 15 minimum are preserved. Device QA: scroll to every field, open/close numeric keyboards, check sticky Save placement above tabs/keyboard, exercise removable chips and quick picks, and inspect light/dark plus accessibility text sizes.

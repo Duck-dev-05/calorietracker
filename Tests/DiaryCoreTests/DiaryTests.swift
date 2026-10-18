@@ -82,7 +82,7 @@ final class DiaryTests: XCTestCase {
             XCTAssertFalse(diary.storageBlocked)
             let archive = try XCTUnwrap(diary.lastArchiveURL)
             XCTAssertEqual(try Data(contentsOf: archive), corrupt)
-            XCTAssertEqual(Diary(url: url).lastArchiveURL, archive)
+            XCTAssertEqual(Diary(url: url).lastArchiveURL?.resolvingSymlinksInPath(), archive.resolvingSymlinksInPath())
         }
     }
     func testRestoreRoundTripPreservesRecordsAndArchive() async throws {

@@ -3,6 +3,10 @@ import Foundation
 struct Profile: Codable {
     var name: String?
     var age: Int?
+    var activityLevel: String?
+    var goalWeight: Double?
+    var goalNote: String?
+    var excludedIngredients: [String]?
     var height = 170.0
     var weight = 70.0
     var target = 2000.0
@@ -22,6 +26,19 @@ struct Meal: Identifiable {
     let calories: Int
     let vegetarian: Bool
     var id: String { name }
+    func matches(preference: String, excluding ingredients: [String] = []) -> Bool {
+        guard preference != "Vegetarian" || vegetarian else { return false }
+        let searchable = name + " " + detail
+        return !ingredients.contains { searchable.localizedCaseInsensitiveContains($0) }
+    }
+    static func exclusionTerms(_ text: String) -> [String] {
+        var result: [String] = []
+        for part in text.split(separator: ",") {
+            let term = part.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !term.isEmpty && !result.contains(term) { result.append(term) }
+        }
+        return result
+    }
     static let ideas = [
         Meal(name: "Greek yogurt bowl", detail: "Plain yogurt, oats, berries and almonds", calories: 350, vegetarian: true),
         Meal(name: "Chicken rice bowl", detail: "Grilled chicken, brown rice and vegetables", calories: 550, vegetarian: false),

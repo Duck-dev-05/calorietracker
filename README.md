@@ -105,3 +105,13 @@ Verification: cloud device compilation is required; visually test navigation pus
 Tests on macOS: `swift test`. The package isolates Models.swift and Diary.swift from SwiftUI and HealthKit. CI runs tests for old-file migration, invalid backup rejection, failed saves, atomic/idempotent meal transfer, corrupt-file preservation, backup round trip, failed restore, future-plan rejection and backdated weights.
 
 Device acceptance: export/restore a test journal; cancel import/confirmation; try a malformed backup; check IDs/totals after relaunch; test numeric fields and keyboard Done on iOS 15 and modern iOS. Keep a personal backup before testing destructive restore/reset flows.
+
+## Detailed personal pages (0.3.0)
+
+The three links under **You → Make it personal** now open dedicated card-based detail pages:
+
+- Personal details: optional name/age, editable measurements, optional activity description, available Health measurements copied into drafts, and a dated-weight logging sheet. Age and activity do not generate a calorie prescription.
+- Goals & daily target: descriptive goal selection, manual calorie entry, live preview against today's diary, optional weight milestone and a personal note. Goal changes do not calculate a deficit or deadline.
+- Food preferences: balanced/vegetarian selection, up to 20 ingredient-word exclusions and a live matching-meal preview. Saving applies the filters to Meals. Exclusions match text in names/descriptions and are not verified allergy checks. Logged/planned meals are preserved.
+
+All three pages use explicit Save actions. Old diaries/backups continue to decode because new profile fields are optional; new fields are included in exported backups. Unit tests cover expanded-profile persistence, validation and meal-filter behavior. Visual/keyboard and file-dialog testing on actual phones remains required.

@@ -14,6 +14,11 @@ struct DiarySnapshot: Codable {
     func validated() throws -> DiarySnapshot {
         guard schemaVersion == nil || schemaVersion == 1 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
         guard profile.height.isFinite, (80...250).contains(profile.height), profile.weight.isFinite, (20...400).contains(profile.weight), profile.target.isFinite, (500...10000).contains(profile.target), (profile.name?.count ?? 0) <= 200 else { throw DiaryFailure.invalid("The profile contains invalid measurements or a calorie target outside 500–10,000.") }
+        if let age = profile.age, !(1...120).contains(age) { throw DiaryFailure.invalid("Age must be a whole number from 1 to 120, or left blank.") }
+        if let weight = profile.goalWeight, !weight.isFinite || !(20...400).contains(weight) { throw DiaryFailure.invalid("Goal weight must be between 20 and 400 kg, or left blank.") }
+        guard (profile.activityLevel?.count ?? 0) <= 80, (profile.goalNote?.count ?? 0) <= 500,
+              (profile.excludedIngredients?.count ?? 0) <= 20,
+              (profile.excludedIngredients ?? []).allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.count <= 50 }) else { throw DiaryFailure.invalid("Keep your goal note under 500 characters and ingredient exclusions to 20 short terms.") }
         guard entryCount <= 100_000 else { throw DiaryFailure.invalid("The backup contains too many entries.") }
         let categories = ["Breakfast", "Lunch", "Dinner", "Snacks"]
         func validName(_ value: String) -> Bool { !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && value.count <= 500 }

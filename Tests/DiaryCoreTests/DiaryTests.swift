@@ -128,4 +128,44 @@ final class DiaryTests: XCTestCase {
             XCTAssertEqual(diary.profile.weight, 72)
         }
     }
+    func testExpandedProfileRoundTripsWithoutChangingFoodHistory() throws {
+        var saved = DiarySnapshot.empty
+        saved.profile.age = 30
+        saved.profile.activityLevel = "Regular exercise"
+        saved.profile.goalWeight = 68
+        saved.profile.goalNote = "Keep a consistent routine"
+        saved.profile.excludedIngredients = ["salmon", "yogurt"]
+        let food = Food(name: "Greek yogurt", calories: 200)
+        saved.foods = [food]
+        let restored = try DiarySnapshot.decode(saved.encoded())
+        XCTAssertEqual(restored.profile.age, 30)
+        XCTAssertEqual(restored.profile.activityLevel, "Regular exercise")
+        XCTAssertEqual(restored.profile.goalWeight, 68)
+        XCTAssertEqual(restored.profile.goalNote, "Keep a consistent routine")
+        XCTAssertEqual(restored.profile.excludedIngredients, ["salmon", "yogurt"])
+        XCTAssertEqual(restored.foods.first?.id, food.id)
+        XCTAssertEqual(restored.foods.first?.calories, 200)
+    }
+    func testMealPreferencesActuallyFilterAndNormalizeTerms() {
+        let terms = Meal.exclusionTerms(" Yogurt, yogurt, , SALMON ")
+        XCTAssertEqual(terms, ["yogurt", "salmon"])
+        XCTAssertEqual(Meal.ideas.filter { $0.matches(preference: "Balanced") }.count, 5)
+        XCTAssertEqual(Meal.ideas.filter { $0.matches(preference: "Vegetarian") }.count, 3)
+        let matched = Meal.ideas.filter { $0.matches(preference: "Vegetarian", excluding: terms) }
+        XCTAssertEqual(matched.count, 2)
+        XCTAssertTrue(matched.allSatisfy { $0.vegetarian && !$0.name.localizedCaseInsensitiveContains("yogurt") })
+        XCTAssertTrue(Meal.ideas.filter { $0.matches(preference: "Balanced", excluding: ["rice", "yogurt", "tofu", "salmon", "hummus"]) }.isEmpty)
+    }
+    func testExpandedProfileRejectsInvalidOptionalFields() throws {
+        var saved = DiarySnapshot.empty
+        saved.profile.age = 0
+        XCTAssertThrowsError(try saved.encoded())
+        saved.profile.age = nil; saved.profile.goalWeight = -1
+        XCTAssertThrowsError(try saved.encoded())
+        saved.profile.goalWeight = nil; saved.profile.goalNote = String(repeating: "a", count: 501)
+        XCTAssertThrowsError(try saved.encoded())
+        saved.profile.goalNote = nil; saved.profile.excludedIngredients = [""]
+        XCTAssertThrowsError(try saved.encoded())
+    }
+
 }

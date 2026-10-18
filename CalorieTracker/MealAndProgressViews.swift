@@ -74,7 +74,7 @@ struct MealsView: View {
     @State private var search = ""
     @State private var onlyFits = false
     private var meals: [Meal] {
-        Meal.ideas.filter { (diary.profile.preferences != "Vegetarian" || $0.vegetarian) && (!onlyFits || $0.calories <= diary.remaining) && (search.isEmpty || ($0.name + $0.detail).localizedCaseInsensitiveContains(search)) }
+        Meal.ideas.filter { $0.matches(preference: diary.profile.preferences, excluding: diary.profile.excludedIngredients ?? []) && (!onlyFits || $0.calories <= diary.remaining) && (search.isEmpty || ($0.name + $0.detail).localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
         PageCanvas {

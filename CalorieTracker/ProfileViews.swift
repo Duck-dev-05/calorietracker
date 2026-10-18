@@ -19,7 +19,7 @@ struct ProfileScreen: View {
             }
             SectionHeading(title: "Make it personal")
             Surface {
-                NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Your name and measurements", icon: "person.crop.circle") }.buttonStyle(.plain)
+                NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Your measurements, age and activity", icon: "person.crop.circle") }.buttonStyle(.plain)
                 Divider()
                 NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal, icon: "target") }.buttonStyle(.plain)
                 Divider()
@@ -38,65 +38,6 @@ struct ProfileScreen: View {
     }
     private func measurement(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 6) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.system(.subheadline, design: .rounded).weight(.semibold)).fixedSize(horizontal: false, vertical: true) }
-    }
-}
-struct PersonalDetailsScreen: View {
-    @EnvironmentObject var diary: Diary
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = ""
-    @State private var height = ""
-    @State private var weight = ""
-    @State private var loaded = false
-    private var valid: Bool { name.count <= 200 && NumberDraftField.value(height, range: 80...250) != nil && NumberDraftField.value(weight, range: 20...400) != nil }
-    var body: some View {
-        Form {
-            Section("About you") { TextField("Your name", text: $name) }
-            Section("Measurements") {
-                NumberDraftField(title: "Height (cm)", text: $height, range: 80...250)
-                NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400)
-            }
-            Section { Text("Changes are applied only when you save. Apple Health imports are available on the connection page.").font(.footnote) }
-            if let error = diary.storageError { Text(error).foregroundStyle(.red) }
-        }.navigationTitle("Personal details").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") {
-            guard let height = NumberDraftField.value(height, range: 80...250), let weight = NumberDraftField.value(weight, range: 20...400) else { return }
-            if diary.transaction({ $0.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); $0.profile.height = height; $0.profile.weight = weight }) { dismiss() }
-        }.disabled(!valid) } }
-        .onAppear { if !loaded { name = diary.profile.name ?? ""; height = diary.profile.height.formatted(.number.grouping(.never)); weight = diary.profile.weight.formatted(.number.grouping(.never)); loaded = true } }
-    }
-}
-struct GoalsScreen: View {
-    @EnvironmentObject var diary: Diary
-    @Environment(\.dismiss) private var dismiss
-    @State private var goal = "Maintain"
-    @State private var target = ""
-    @State private var loaded = false
-    var body: some View {
-        Form {
-            Section("Your direction") { Picker("Goal", selection: $goal) { ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } } }
-            Section("Daily calorie target") {
-                NumberDraftField(title: "Target (kcal)", text: $target, range: 500...10000)
-                Text("Set your own target. Input limits are not recommendations. Height and weight do not yet calculate a personalized target.").font(.footnote)
-            }
-            Section("Activity") { Text("Activity calories are displayed separately and do not automatically increase your food target.") }
-            if let error = diary.storageError { Text(error).foregroundStyle(.red) }
-        }.navigationTitle("Goals & target").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") {
-            guard let target = NumberDraftField.value(target, range: 500...10000) else { return }
-            if diary.transaction({ $0.profile.goal = goal; $0.profile.target = target }) { dismiss() }
-        }.disabled(NumberDraftField.value(target, range: 500...10000) == nil) } }
-        .onAppear { if !loaded { goal = diary.profile.goal; target = diary.profile.target.formatted(.number.grouping(.never)); loaded = true } }
-    }
-}
-struct PreferencesScreen: View {
-    @EnvironmentObject var diary: Diary
-    var body: some View {
-        Form {
-            Section("Meal inspiration") {
-                Picker("Food style", selection: $diary.profile.preferences) { Text("Balanced").tag("Balanced"); Text("Vegetarian").tag("Vegetarian") }.pickerStyle(.inline)
-            }
-            Section { Text("Vegetarian filtering includes dairy. Meal ideas are not checked for allergies, intolerances or medical diets. Read the ingredients before choosing a meal.") }
-        }.navigationTitle("Food preferences")
     }
 }
 struct HealthScreen: View {

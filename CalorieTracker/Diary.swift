@@ -8,12 +8,17 @@ struct DiarySnapshot: Codable {
     var water: [WaterEntry]? = []
     var weights: [WeightEntry]? = []
     var planned: [PlannedMeal]? = []
+    var savedMeals: [Meal]? = []
     static var empty: DiarySnapshot { DiarySnapshot(profile: Profile(), foods: []) }
     static let maxFileSize = 10 * 1024 * 1024
-    var entryCount: Int { foods.count + (water?.count ?? 0) + (weights?.count ?? 0) + (planned?.count ?? 0) }
+    var entryCount: Int { foods.count + (water?.count ?? 0) + (weights?.count ?? 0) + (planned?.count ?? 0) + (savedMeals?.count ?? 0) }
     func validated() throws -> DiarySnapshot {
         guard schemaVersion == nil || schemaVersion == 1 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
-        guard profile.height.isFinite, (80...250).contains(profile.height), profile.weight.isFinite, (20...400).contains(profile.weight), profile.target.isFinite, (500...10000).contains(profile.target), (profile.name?.count ?? 0) <= 200 else { throw DiaryFailure.invalid("The profile contains invalid measurements or a calorie target outside 500–10,000.") }
+        for (value, range) in [(profile.height, 80.0...250.0), (profile.weight, 20.0...400.0), (profile.target, 500.0...10000.0)] {
+            if let value, !value.isFinite || !range.contains(value) { throw DiaryFailure.invalid("A measurement or calorie target is outside the supported input range.") }
+        }
+        guard (profile.name?.count ?? 0) <= 200 else { throw DiaryFailure.invalid("Keep your name under 200 characters.") }
+
         if let age = profile.age, !(1...120).contains(age) { throw DiaryFailure.invalid("Age must be a whole number from 1 to 120, or left blank.") }
         if let weight = profile.goalWeight, !weight.isFinite || !(20...400).contains(weight) { throw DiaryFailure.invalid("Goal weight must be between 20 and 400 kg, or left blank.") }
         guard (profile.activityLevel?.count ?? 0) <= 80, (profile.goalNote?.count ?? 0) <= 500,
@@ -28,8 +33,9 @@ struct DiarySnapshot: Codable {
               (weights ?? []).allSatisfy({ $0.kilograms.isFinite && (20...400).contains($0.kilograms) && validDate($0.date) }),
               (planned ?? []).allSatisfy({ validName($0.name) && (1...10000).contains($0.calories) && categories.contains($0.category) && validDate($0.date) }) else { throw DiaryFailure.invalid("The file contains an invalid entry, amount, date or meal category.") }
         guard Set(foods.map(\.id)).count == foods.count, Set((water ?? []).map(\.id)).count == (water ?? []).count, Set((weights ?? []).map(\.id)).count == (weights ?? []).count, Set((planned ?? []).map(\.id)).count == (planned ?? []).count else { throw DiaryFailure.invalid("The backup contains duplicate entry identifiers.") }
+        guard (savedMeals ?? []).allSatisfy({ validName($0.name) && !$0.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.detail.count <= 2000 && (1...10000).contains($0.calories) }), Set((savedMeals ?? []).map(\.id)).count == (savedMeals ?? []).count else { throw DiaryFailure.invalid("A saved meal contains invalid details, calories or duplicate identifiers.") }
         var result = self
-        result.schemaVersion = 1; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []
+        result.schemaVersion = 1; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
         return result
     }
     static func decode(_ data: Data) throws -> DiarySnapshot {
@@ -56,6 +62,7 @@ enum DiaryFailure: LocalizedError {
     private let url: URL
     private let writer: (Data, URL) throws -> Void
     // Computed bindings preserve current UI while all writes use a validated candidate snapshot.
+    var savedMeals: [Meal] { snapshot.savedMeals ?? [] }
     var profile: Profile { get { snapshot.profile } set { _ = transaction { $0.profile = newValue } } }
     var foods: [Food] { get { snapshot.foods } set { _ = transaction { $0.foods = newValue } } }
     var water: [WaterEntry] { get { snapshot.water ?? [] } set { _ = transaction { $0.water = newValue } } }
@@ -142,5 +149,5 @@ enum DiaryFailure: LocalizedError {
     }
     var today: [Food] { foods.filter { Calendar.current.isDateInToday($0.date) } }
     var consumed: Int { today.reduce(0) { $0 + $1.calories } }
-    var remaining: Int { Int(profile.target) - consumed }
+    var remaining: Int? { profile.target.map { Int($0) - consumed } }
 }

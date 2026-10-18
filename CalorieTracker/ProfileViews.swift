@@ -8,22 +8,22 @@ struct ProfileScreen: View {
             Surface {
                 HStack(spacing: 16) {
                     ZStack { Circle().fill(NourishStyle.accent.opacity(0.12)).frame(width: 64, height: 64); Image(systemName: "person.fill").font(.title).foregroundStyle(NourishStyle.accent) }
-                    VStack(alignment: .leading, spacing: 6) { Text(diary.profile.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Your profile").font(.system(.title2, design: .rounded).weight(.bold)); Pill(text: diary.profile.goal) }
+                    VStack(alignment: .leading, spacing: 6) { Text(diary.profile.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Your profile").font(.system(.title2, design: .rounded).weight(.bold)); Pill(text: diary.profile.goal.isEmpty ? "Goal not set" : diary.profile.goal) }
                 }
                 Divider()
                 HStack {
-                    measurement("Height", String(format: "%.0f cm", diary.profile.height))
-                    Spacer(); measurement("Weight", String(format: "%.1f kg", diary.profile.weight))
-                    Spacer(); measurement("Target", "\(Int(diary.profile.target)) kcal")
+                    measurement("Height", diary.profile.height.map { String(format: "%.0f cm", $0) } ?? "Not set")
+                    Spacer(); measurement("Weight", diary.profile.weight.map { String(format: "%.1f kg", $0) } ?? "Not set")
+                    Spacer(); measurement("Target", diary.profile.target.map { "\(Int($0)) kcal" } ?? "Not set")
                 }
             }
             SectionHeading(title: "Make it personal")
             Surface {
                 NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Your measurements, age and activity", icon: "person.crop.circle") }.buttonStyle(.plain)
                 Divider()
-                NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal, icon: "target") }.buttonStyle(.plain)
+                NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal.isEmpty ? "Choose your direction" : diary.profile.goal, icon: "target") }.buttonStyle(.plain)
                 Divider()
-                NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences, icon: "fork.knife") }.buttonStyle(.plain)
+                NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Choose your food style" : diary.profile.preferences, icon: "fork.knife") }.buttonStyle(.plain)
             }
             SectionHeading(title: "Connected to your day")
             Surface {
@@ -120,9 +120,9 @@ struct PrivacyScreen: View {
 struct HelpScreen: View {
     var body: some View {
         List {
-            Section("How do I start?") { Text("Set your target in You → Goals & daily target. Add what you eat in Diary, including calories for your actual serving. Explore Meals for inspiration.") }
+            Section("How do I start?") { Text("Set your target in You → Goals & daily target. Add what you eat in Diary, including calories for your actual serving. Save your own meals in Meals for reuse.") }
             Section("Does planning count as eating?") { Text("No. Add meals to your planner, then mark them as eaten to move them into the diary. Future meals cannot be marked as eaten.") }
-            Section("Where do calories come from?") { Text("Food diary calories are entered by you. The built-in meal ideas have illustrative calorie estimates. There is no barcode scanner, photo analysis or live nutrition database yet.") }
+            Section("Where do calories come from?") { Text("Food diary calories are entered by you. Saved meals use the calories and ingredients you enter. No meals or measurements are preloaded. There is no barcode scanner, photo analysis or live nutrition database yet.") }
             Section("Why is Health data unavailable?") { Text("Check that Apple Health contains records and Nourish has read permission. Open You → Apple Health and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
             Section("How is my target calculated?") { Text("It is currently set manually. Recording your measurements and goal does not automatically calculate it. The app does not prescribe a diet.") }
             Section("How do I keep a backup?") { Text("Open You → Settings → Backup & restore. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }

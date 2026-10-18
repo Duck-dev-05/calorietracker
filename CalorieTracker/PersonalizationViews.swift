@@ -81,12 +81,12 @@ struct PersonalDetailsScreen: View {
     @State private var weight = ""
     @State private var activity = "Not specified"
     @State private var loggingWeight = false
-    @State private var weightBeforeLogging = 0.0
+    @State private var weightBeforeLogging: Double?
     @State private var loaded = false
     @FocusState private var textFocused: Bool
     private let activities = ["Not specified", "Mostly seated", "Some daily movement", "Regular exercise", "Very active days"]
     private var ageValid: Bool { age.isEmpty || Int(age).map { (1...120).contains($0) } == true }
-    private var valid: Bool { name.count <= 200 && ageValid && NumberDraftField.value(height, range: 80...250) != nil && NumberDraftField.value(weight, range: 20...400) != nil }
+    private var valid: Bool { name.count <= 200 && ageValid && (height.isEmpty || NumberDraftField.value(height, range: 80...250) != nil) && (weight.isEmpty || NumberDraftField.value(weight, range: 20...400) != nil) }
     private var displayName: String { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your profile" : name }
     var body: some View {
         PersonalEditor(title: "Personal details", subtitle: "Edits apply only after a successful save.", actionTitle: "Save profile", valid: valid, action: save) {
@@ -104,9 +104,9 @@ struct PersonalDetailsScreen: View {
             }
             EditorHeading(number: "02", title: "Body measurements", detail: "Your current measurements, in metric units.")
             Surface {
-                NumberDraftField(title: "Height · cm", text: $height, range: 80...250)
+                NumberDraftField(title: "Height · cm", text: $height, range: 80...250, isOptional: true)
                 Divider()
-                NumberDraftField(title: "Weight · kg", text: $weight, range: 20...400)
+                NumberDraftField(title: "Weight · kg", text: $weight, range: 20...400, isOptional: true)
                 Button { weightBeforeLogging = diary.profile.weight; loggingWeight = true } label: { Label("Add a dated weight to Progress", systemImage: "plus.circle").font(.subheadline.weight(.semibold)) }.padding(.top, 4)
                 EditorNote(text: "Profile edits update your current measurement. Dated entries are tracked separately in Progress.")
             }
@@ -119,7 +119,7 @@ struct PersonalDetailsScreen: View {
             EditorNote(text: "Age and activity add context to your profile. Your daily calorie target is still set manually.")
             EditorError()
         }
-        .sheet(isPresented: $loggingWeight, onDismiss: { if diary.profile.weight != weightBeforeLogging { weight = diary.profile.weight.formatted(.number.grouping(.never)) } }) { WeightLogScreen().adaptiveEntrySheet() }
+        .sheet(isPresented: $loggingWeight, onDismiss: { if diary.profile.weight != weightBeforeLogging { weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? "" } }) { WeightLogScreen().adaptiveEntrySheet() }
         .toolbar { ToolbarItemGroup(placement: .keyboard) { if textFocused { Spacer(); Button("Done") { textFocused = false } } } }
         .onAppear(perform: load)
     }
@@ -154,10 +154,11 @@ struct PersonalDetailsScreen: View {
     }
     private func load() {
         guard !loaded else { return }
-        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height.formatted(.number.grouping(.never)); weight = p.weight.formatted(.number.grouping(.never)); activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; loaded = true
+        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height?.formatted(.number.grouping(.never)) ?? ""; weight = p.weight?.formatted(.number.grouping(.never)) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; loaded = true
     }
     private func save() {
-        guard valid, let h = NumberDraftField.value(height, range: 80...250), let w = NumberDraftField.value(weight, range: 20...400) else { return }
+        guard valid else { return }
+        let h = NumberDraftField.value(height, range: 80...250), w = NumberDraftField.value(weight, range: 20...400)
         if diary.transaction({ $0.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); $0.profile.age = Int(age); $0.profile.height = h; $0.profile.weight = w; $0.profile.activityLevel = activity == "Not specified" ? nil : activity }) { dismiss() }
     }
 }
@@ -165,7 +166,7 @@ struct GoalsScreen: View {
     @EnvironmentObject var diary: Diary
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sizeCategory) private var sizeCategory
-    @State private var goal = "Maintain"
+    @State private var goal = ""
     @State private var target = ""
     @State private var hasGoalWeight = false
     @State private var goalWeight = ""
@@ -173,7 +174,7 @@ struct GoalsScreen: View {
     @State private var loaded = false
     @FocusState private var targetFocused: Bool
     private var calories: Double? { NumberDraftField.value(target, range: 500...10000) }
-    private var valid: Bool { calories != nil && (!hasGoalWeight || NumberDraftField.value(goalWeight, range: 20...400) != nil) && note.count <= 500 }
+    private var valid: Bool { (target.isEmpty || calories != nil) && (!hasGoalWeight || NumberDraftField.value(goalWeight, range: 20...400) != nil) && note.count <= 500 }
     private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 10), count: sizeCategory.isAccessibilityCategory ? 1 : 3) }
     var body: some View {
         PersonalEditor(title: "Goals & target", subtitle: "Apply this target to your daily balance.", actionTitle: "Save my plan", valid: valid, action: save) {
@@ -183,6 +184,7 @@ struct GoalsScreen: View {
                 ChoiceTile(title: "Lose weight", icon: "arrow.down.right", selected: goal == "Lose weight") { goal = "Lose weight" }
                 ChoiceTile(title: "Gain weight", icon: "arrow.up.right", selected: goal == "Gain weight") { goal = "Gain weight" }
             }
+            Button("Clear goal selection") { goal = "" }.font(.caption).disabled(goal.isEmpty)
             Text(goalDescription).font(.subheadline).foregroundStyle(.secondary)
             targetPanel
             EditorHeading(number: "01", title: "A milestone, if you want one", detail: "Set a weight to work toward, without a deadline.")
@@ -192,7 +194,7 @@ struct GoalsScreen: View {
                     Divider()
                     NumberDraftField(title: "Goal weight · kg", text: $goalWeight, range: 20...400)
                 }
-                ValueRow(title: "Current profile weight", value: String(format: "%.1f kg", diary.profile.weight))
+                ValueRow(title: "Current profile weight", value: diary.profile.weight.map { String(format: "%.1f kg", $0) } ?? "Not set")
                 NavigationLink(destination: ProgressScreen()) { Label("See your weight history", systemImage: "chart.line.uptrend.xyaxis").font(.subheadline) }
             }
             EditorHeading(number: "02", title: "Remember your why", detail: "An optional note, just for you.")
@@ -215,10 +217,10 @@ struct GoalsScreen: View {
         Surface {
             HStack { Label("DAILY ENERGY", systemImage: "flame").font(.caption.bold()); Spacer(); Pill(text: "MANUAL") }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                TextField("2000", text: $target).keyboardType(.decimalPad).focused($targetFocused).font(.system(.largeTitle, design: .rounded).weight(.bold)).accessibilityLabel("Daily calorie target")
+                TextField("Not set", text: $target).keyboardType(.decimalPad).focused($targetFocused).font(.system(.largeTitle, design: .rounded).weight(.bold)).accessibilityLabel("Daily calorie target")
                 Text("kcal / day").font(.subheadline).foregroundStyle(.secondary)
             }.padding(.vertical, 6)
-            if calories == nil { Text("Enter a number from 500 to 10,000.").font(.caption).foregroundStyle(.red) }
+            if !target.isEmpty && calories == nil { Text("Enter a number from 500 to 10,000.").font(.caption).foregroundStyle(.red) }
             HStack {
                 Button { adjust(-50) } label: { Label("50", systemImage: "minus").frame(maxWidth: .infinity).padding(.vertical, 5) }.buttonStyle(.bordered).accessibilityLabel("Decrease target by 50 kilocalories")
                 Button { adjust(50) } label: { Label("50", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 5) }.buttonStyle(.bordered).accessibilityLabel("Increase target by 50 kilocalories")
@@ -229,14 +231,14 @@ struct GoalsScreen: View {
         }
     }
     private var goalDescription: String {
-        switch goal { case "Lose weight": return "Focus on a weight-loss goal while keeping your calorie target under your control."; case "Gain weight": return "Work toward a weight-gain goal and follow your consistency over time."; default: return "Build a steady routine and keep an eye on your everyday intake." }
+        switch goal { case "": return "Choose a direction when you're ready. No goal is selected yet."; case "Lose weight": return "Focus on a weight-loss goal while keeping your calorie target under your control."; case "Gain weight": return "Work toward a weight-gain goal and follow your consistency over time."; default: return "Build a steady routine and keep an eye on your everyday intake." }
     }
     private func adjust(_ delta: Double) { guard let calories else { return }; target = min(10000, max(500, calories + delta)).formatted(.number.grouping(.never)) }
     private func load() {
-        guard !loaded else { return }; let p = diary.profile; goal = p.goal; target = p.target.formatted(.number.grouping(.never)); hasGoalWeight = p.goalWeight != nil; goalWeight = (p.goalWeight ?? p.weight).formatted(.number.grouping(.never)); note = p.goalNote ?? ""; loaded = true
+        guard !loaded else { return }; let p = diary.profile; goal = p.goal; target = p.target?.formatted(.number.grouping(.never)) ?? ""; hasGoalWeight = p.goalWeight != nil; goalWeight = (p.goalWeight ?? p.weight)?.formatted(.number.grouping(.never)) ?? ""; note = p.goalNote ?? ""; loaded = true
     }
     private func save() {
-        guard valid, let calories else { return }
+        guard valid else { return }
         if diary.transaction({ $0.profile.goal = goal; $0.profile.target = calories; $0.profile.goalWeight = hasGoalWeight ? NumberDraftField.value(goalWeight, range: 20...400) : nil; $0.profile.goalNote = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note.trimmingCharacters(in: .whitespacesAndNewlines) }) { dismiss() }
     }
 }
@@ -244,13 +246,13 @@ struct PreferencesScreen: View {
     @EnvironmentObject var diary: Diary
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sizeCategory) private var sizeCategory
-    @State private var style = "Balanced"
+    @State private var style = ""
     @State private var exclusions = ""
     @State private var loaded = false
     @FocusState private var focused: Bool
     private var terms: [String] { Meal.exclusionTerms(exclusions) }
     private var valid: Bool { terms.count <= 20 && terms.allSatisfy { $0.count <= 50 } }
-    private var matches: [Meal] { Meal.ideas.filter { $0.matches(preference: style, excluding: terms) } }
+    private var matches: [Meal] { diary.savedMeals.filter { $0.matches(preference: style, excluding: terms) } }
     private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 12), count: sizeCategory.isAccessibilityCategory ? 1 : 2) }
     var body: some View {
         PersonalEditor(title: "Food preferences", subtitle: "Changes apply to meal ideas after you save.", actionTitle: "Save my preferences", valid: valid, action: save) {
@@ -263,10 +265,11 @@ struct PreferencesScreen: View {
                 ChoiceTile(title: "Balanced", icon: "fork.knife", selected: style == "Balanced") { style = "Balanced" }
                 ChoiceTile(title: "Vegetarian", icon: "leaf", selected: style == "Vegetarian") { style = "Vegetarian" }
             }
-            Text(style == "Vegetarian" ? "Meat-free ideas, with dairy included. This filter is not vegan." : "The whole collection: plants, dairy, chicken and fish.").font(.subheadline).foregroundStyle(.secondary)
+            Button("Clear food style") { style = "" }.font(.caption).disabled(style.isEmpty)
+            Text(style.isEmpty ? "No food style selected. All of your saved meals are shown." : style == "Vegetarian" ? "Meat-free ideas, with dairy included. This filter is not vegan." : "The whole collection: plants, dairy, chicken and fish.").font(.subheadline).foregroundStyle(.secondary)
             ingredientPanel
             HStack(alignment: .firstTextBaseline) { SectionHeading(title: "Your menu preview", subtitle: "Based on the choices above"); Spacer(); Pill(text: "\(matches.count) ideas") }
-            if matches.isEmpty { Surface { EmptyCard(title: "Let's open up the menu", message: "Remove an ingredient filter or try another food style.", icon: "fork.knife") } }
+            if matches.isEmpty { Surface { EmptyCard(title: diary.savedMeals.isEmpty ? "Your meal collection is empty" : "No meals match", message: diary.savedMeals.isEmpty ? "Add your own meals in the Meals tab to preview them here." : "Remove an ingredient filter or try another food style.", icon: "fork.knife") } }
             else if sizeCategory.isAccessibilityCategory { ForEach(matches) { meal in mealPreview(meal) } }
             else {
                 ScrollView(.horizontal, showsIndicators: false) { HStack(alignment: .top, spacing: 14) { ForEach(matches) { meal in mealPreview(meal).frame(width: 245) } }.padding(.vertical, 2) }
@@ -293,12 +296,6 @@ struct PreferencesScreen: View {
                     }
                 }
             }
-            Text("QUICK PICKS").font(.caption2.bold()).tracking(1.5).foregroundStyle(.secondary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 85))], spacing: 8) {
-                ForEach(["yogurt", "salmon", "chicken", "almonds", "sesame", "hummus"], id: \.self) { term in
-                    Button { toggle(term) } label: { HStack(spacing: 4) { Image(systemName: terms.contains(term) ? "checkmark" : "plus"); Text(term) }.font(.caption).padding(.vertical, 10).frame(maxWidth: .infinity).background(NourishStyle.canvas, in: Capsule()) }.buttonStyle(.plain).foregroundStyle(NourishStyle.accent).accessibilityLabel("\(terms.contains(term) ? "Remove" : "Add") \(term) exclusion")
-                }
-            }
             Text(valid ? "\(terms.count) of 20 ingredient terms" : "Use up to 20 terms, with a maximum of 50 characters each.").font(.caption).foregroundStyle(valid ? Color.secondary : Color.red)
         }
     }
@@ -307,7 +304,7 @@ struct PreferencesScreen: View {
             MealArtwork(meal: meal)
             Text(meal.name).font(.system(.headline, design: .rounded)).fixedSize(horizontal: false, vertical: true)
             Text(meal.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Text("≈ \(meal.calories) kcal").font(.caption.weight(.semibold)).foregroundStyle(NourishStyle.accent)
+            Text("\(meal.calories) kcal").font(.caption.weight(.semibold)).foregroundStyle(NourishStyle.accent)
         }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(NourishStyle.surface, in: RoundedRectangle(cornerRadius: 22))
     }
     private func remove(_ term: String) { exclusions = terms.filter { $0 != term }.joined(separator: ", ") }

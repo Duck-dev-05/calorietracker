@@ -66,10 +66,11 @@ struct DashboardView: View {
                 HStack {
                     balance("EATEN", "\(diary.consumed)")
                     Spacer(); Rectangle().fill(.white.opacity(0.2)).frame(width: 1, height: 36); Spacer()
-                    balance("DAILY TARGET", "\(Int(diary.profile.target))")
+                    balance("DAILY TARGET", diary.profile.target.map { "\(Int($0))" } ?? "—")
                 }
-                if diary.remaining < 0 { Text("\(-diary.remaining) kcal above today's target").font(.footnote).foregroundStyle(.white.opacity(0.85)) }
+                if let remaining = diary.remaining, remaining < 0 { Text("\(-remaining) kcal above today's target").font(.footnote).foregroundStyle(.white.opacity(0.85)) }
             }.padding(24).foregroundStyle(.white).background(LinearGradient(colors: [Color(red: 0.19, green: 0.36, blue: 0.27), Color(red: 0.09, green: 0.22, blue: 0.17)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 30))
+            if diary.profile.target == nil { NavigationLink(destination: GoalsScreen()) { Label("Set your calorie target", systemImage: "target") } }
             Button { adding = true } label: { Label("Log a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
             SectionHeading(title: "Your daily rhythm", subtitle: "Movement and hydration, at a glance")
             HStack(alignment: .top, spacing: 12) {
@@ -84,11 +85,11 @@ struct DashboardView: View {
             HStack { SectionHeading(title: "On your plate"); Spacer(); NavigationLink("Planner", destination: MealPlanScreen()).font(.subheadline.weight(.semibold)) }
             Surface {
                 let plan = diary.planned.filter { Calendar.current.isDateInToday($0.date) }
-                if plan.isEmpty { EmptyCard(title: "Something good is ahead", message: "Build a plan from meal ideas you enjoy.", icon: "fork.knife") }
+                if plan.isEmpty { EmptyCard(title: "Something good is ahead", message: "Add your own meals to build a plan.", icon: "fork.knife") }
                 ForEach(plan) { meal in
                     NavigationLink(destination: MealPlanScreen()) { RouteRow(title: meal.name, subtitle: "\(meal.category) · \(meal.calories) kcal", icon: "fork.knife") }.buttonStyle(.plain)
                 }
-                NavigationLink(destination: MealsView()) { Text("Explore meal inspiration").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8) }
+                NavigationLink(destination: MealsView()) { Text("Open your meal collection").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8) }
             }
             Text("Activity is shown separately from your food target.").font(.caption).foregroundStyle(.secondary)
         }.navigationTitle("Nourish").navigationBarTitleDisplayMode(.inline)

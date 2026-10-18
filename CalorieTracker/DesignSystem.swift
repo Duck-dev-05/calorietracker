@@ -83,19 +83,19 @@ struct PrimaryAction: ButtonStyle {
 }
 struct CalorieRing: View {
     let eaten: Int
-    let target: Double
-    private var progress: Double { min(max(Double(eaten) / max(target, 1), 0), 1) }
+    let target: Double?
+    private var progress: Double { target.map { min(max(Double(eaten) / max($0, 1), 0), 1) } ?? 0 }
     var body: some View {
         ZStack {
             Circle().stroke(Color.white.opacity(0.14), lineWidth: 13)
             Circle().trim(from: 0, to: progress).stroke(Color(red: 0.78, green: 0.9, blue: 0.57), style: StrokeStyle(lineWidth: 13, lineCap: .round)).rotationEffect(.degrees(-90))
             VStack(spacing: 6) {
                 Image(systemName: "leaf.fill").font(.title3).foregroundStyle(Color(red: 0.78, green: 0.9, blue: 0.57))
-                Text("\(max(0, Int(target) - eaten))").font(.system(size: 46, weight: .semibold, design: .rounded)).minimumScaleFactor(0.6).lineLimit(1)
-                Text("kcal remaining").font(.caption).foregroundStyle(.white.opacity(0.8))
+                Text(target.map { "\(max(0, Int($0) - eaten))" } ?? "—").font(.system(size: 46, weight: .semibold, design: .rounded)).minimumScaleFactor(0.6).lineLimit(1)
+                Text(target == nil ? "Set a daily target" : "kcal remaining").font(.caption).foregroundStyle(.white.opacity(0.8))
             }.padding(20)
         }.frame(width: 200, height: 200).padding(8)
-        .accessibilityElement(children: .ignore).accessibilityLabel("\(max(0, Int(target) - eaten)) kilocalories remaining. \(eaten) eaten. Target \(Int(target)).")
+        .accessibilityElement(children: .ignore).accessibilityLabel(target.map { "\(max(0, Int($0) - eaten)) kilocalories remaining. \(eaten) eaten. Target \(Int($0))." } ?? "Daily target not set. \(eaten) kilocalories logged.")
     }
 }
 struct MealArtwork: View {

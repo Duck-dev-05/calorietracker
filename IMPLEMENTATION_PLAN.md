@@ -194,3 +194,7 @@ First implementation task: M1 transactional storage and draft validation, before
 Implemented in source: dedicated backup/restore and storage-recovery screens; preview and confirmation before replacement; preservation of original bytes; archive discovery after relaunch; versioned/validated snapshots; commit-before-publish storage; atomic/idempotent plan transfer; explicit drafts for onboarding, measurements, target and weight entry; save-success-dependent food/weight dismissal. A macOS Swift package and CI test step cover persistence and recovery behavior.
 
 This does not complete all of M1/M4. Background file I/O, a shared clock/day context, full measurement provenance/reconciliation, app icon assets and comprehensive on-device recovery/backup UI testing remain open. M2 food library and M3 personalization/Health refinements are not part of this iteration.
+
+## Implementation update — remove seeded content
+
+The app no longer seeds example meals or numeric profile defaults. New measurements and calorie targets are optional and absent until supplied. Goals and food styles start unselected. The meal collection now starts empty and supports user-created, editable, deletable meals; preferences and planning use that persisted collection. Existing user records are preserved, including values previously saved in older versions. Synthetic unit-test inputs remain isolated in the test target and are not app content.

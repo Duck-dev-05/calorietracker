@@ -5,6 +5,7 @@ struct NumberDraftField: View {
     let title: String
     @Binding var text: String
     let range: ClosedRange<Double>
+    var isOptional = false
     @FocusState private var focused: Bool
     static func value(_ text: String, range: ClosedRange<Double>) -> Double? {
         let formatter = NumberFormatter(); formatter.locale = .current; formatter.numberStyle = .decimal
@@ -22,7 +23,7 @@ struct NumberDraftField: View {
                 Text(title); Spacer(minLength: 12)
                 TextField(title, text: $text).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(minWidth: 70, maxWidth: 120).focused($focused)
             }
-            if Self.value(text, range: range) == nil {
+            if !(isOptional && text.isEmpty) && Self.value(text, range: range) == nil {
                 Text("Enter a number from \(range.lowerBound.formatted()) to \(range.upperBound.formatted()).").font(.caption).foregroundStyle(.red)
             }
         }.padding(.vertical, 3).toolbar {

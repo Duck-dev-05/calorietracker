@@ -9,7 +9,7 @@ struct OnboardingView: View {
     @State private var weight = ""
     @State private var target = ""
     @State private var loaded = false
-    private var validSetup: Bool { (draft.name?.count ?? 0) <= 200 && NumberDraftField.value(height, range: 80...250) != nil && NumberDraftField.value(weight, range: 20...400) != nil && NumberDraftField.value(target, range: 500...10000) != nil }
+    private var validSetup: Bool { (draft.name?.count ?? 0) <= 200 && (height.isEmpty || NumberDraftField.value(height, range: 80...250) != nil) && (weight.isEmpty || NumberDraftField.value(weight, range: 20...400) != nil) && (target.isEmpty || NumberDraftField.value(target, range: 500...10000) != nil) }
     var body: some View {
         AdaptiveNavigation {
             VStack(spacing: 20) {
@@ -31,19 +31,19 @@ struct OnboardingView: View {
                     Form {
                         Section("Make it yours") {
                             TextField("Your name (optional)", text: Binding(get: { draft.name ?? "" }, set: { draft.name = $0 }))
-                            NumberDraftField(title: "Height (cm)", text: $height, range: 80...250)
-                            NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400)
-                            Picker("Goal", selection: $draft.goal) { ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } }
+                            NumberDraftField(title: "Height (cm)", text: $height, range: 80...250, isOptional: true)
+                            NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400, isOptional: true)
+                            Picker("Goal", selection: $draft.goal) { Text("Not set").tag(""); ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } }
                         }
                         Section("Daily target") {
-                            NumberDraftField(title: "Calories (kcal)", text: $target, range: 500...10000)
-                            Text("Measurements below start with example values. Replace them with yours. The calorie target is manual; input limits are not recommendations.").font(.footnote)
+                            NumberDraftField(title: "Calories (kcal)", text: $target, range: 500...10000, isOptional: true)
+                            Text("Enter your own measurements and manual target, or leave them blank and add them later. Nothing is prefilled.").font(.footnote)
                         }
                     }
                 } else {
                     Form {
                         Section("Choose your food style") {
-                            Picker("Preference", selection: $draft.preferences) { Text("Balanced").tag("Balanced"); Text("Vegetarian").tag("Vegetarian") }
+                            Picker("Preference", selection: $draft.preferences) { Text("Not set").tag(""); Text("Balanced").tag("Balanced"); Text("Vegetarian").tag("Vegetarian") }
                         }
                         Section("Your data, your choice") {
                             Label("Your diary stays on this device", systemImage: "lock.shield")
@@ -56,7 +56,7 @@ struct OnboardingView: View {
                     if step > 0 { Button("Back") { step -= 1 }.padding() }
                     Button(step == 2 ? "Save & start my day" : "Continue") {
                         if step == 2 {
-                            guard let h = NumberDraftField.value(height, range: 80...250), let w = NumberDraftField.value(weight, range: 20...400), let t = NumberDraftField.value(target, range: 500...10000) else { return }
+                            guard validSetup else { return }; let h = NumberDraftField.value(height, range: 80...250), w = NumberDraftField.value(weight, range: 20...400), t = NumberDraftField.value(target, range: 500...10000)
                             draft.height = h; draft.weight = w; draft.target = t
                             if diary.transaction({ $0.profile = draft }) { complete = true }
                         } else { step += 1 }
@@ -65,7 +65,7 @@ struct OnboardingView: View {
                 if let error = diary.storageError { Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal) }
             }.background(NourishStyle.canvas.ignoresSafeArea()).navigationTitle(step == 0 ? "Nourish" : "Your setup").navigationBarTitleDisplayMode(.inline)
         }.onAppear {
-            if !loaded { draft = diary.profile; height = draft.height.formatted(.number.grouping(.never)); weight = draft.weight.formatted(.number.grouping(.never)); target = draft.target.formatted(.number.grouping(.never)); loaded = true }
+            if !loaded { draft = diary.profile; height = draft.height?.formatted(.number.grouping(.never)) ?? ""; weight = draft.weight?.formatted(.number.grouping(.never)) ?? ""; target = draft.target?.formatted(.number.grouping(.never)) ?? ""; loaded = true }
         }
     }
 }
@@ -73,36 +73,47 @@ struct MealsView: View {
     @EnvironmentObject var diary: Diary
     @State private var search = ""
     @State private var onlyFits = false
+    @State private var adding = false
     private var meals: [Meal] {
-        Meal.ideas.filter { $0.matches(preference: diary.profile.preferences, excluding: diary.profile.excludedIngredients ?? []) && (!onlyFits || $0.calories <= diary.remaining) && (search.isEmpty || ($0.name + $0.detail).localizedCaseInsensitiveContains(search)) }
+        diary.savedMeals.filter { meal in
+            meal.matches(preference: diary.profile.preferences, excluding: diary.profile.excludedIngredients ?? []) && (!onlyFits || diary.remaining.map { meal.calories <= $0 } == true) && (search.isEmpty || (meal.name + meal.detail).localizedCaseInsensitiveContains(search))
+        }
     }
     var body: some View {
         PageCanvas {
-            PageIntro(eyebrow: "Eat well", title: "Find your next favorite.", detail: "Simple ideas to bring a little variety to your plate.")
-            NavigationLink(destination: MealPlanScreen()) {
-                Surface { RouteRow(title: "Your meal planner", subtitle: "Make a little space for the week ahead", icon: "calendar") }
-            }.buttonStyle(.plain)
-            Surface { Toggle("Fits my remaining calories", isOn: $onlyFits).font(.subheadline); Text("\(max(0, diary.remaining)) kcal remaining today · \(diary.profile.preferences)").font(.caption).foregroundStyle(.secondary) }
-            SectionHeading(title: "Made for your day", subtitle: "Illustrative servings · approximate calories")
+            PageIntro(eyebrow: "Your meals", title: "A collection of your own.", detail: "Save meals you actually eat, with ingredients and calories you provide.")
+            Button { adding = true } label: { Label("Create a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
+            NavigationLink(destination: MealPlanScreen()) { Surface { RouteRow(title: "Your meal planner", subtitle: "Plan from your saved meals", icon: "calendar") } }.buttonStyle(.plain)
+            if !diary.savedMeals.isEmpty {
+                Surface {
+                    Toggle("Fits my remaining calories", isOn: $onlyFits).disabled(diary.remaining == nil)
+                    Text(diary.remaining.map { "\(max(0, $0)) kcal remaining today" } ?? "Set a daily target to filter by remaining calories.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
             ForEach(meals) { meal in
                 NavigationLink(destination: MealDetailScreen(meal: meal)) {
                     Surface {
                         MealArtwork(meal: meal)
-                        HStack(alignment: .top) { Text(meal.name).font(.system(.title3, design: .rounded).weight(.bold)).foregroundStyle(.primary); Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(NourishStyle.accent).accessibilityHidden(true) }
+                        Text(meal.name).font(.headline).foregroundStyle(.primary)
                         Text(meal.detail).font(.subheadline).foregroundStyle(.secondary)
-                        HStack { Pill(text: "≈ \(meal.calories) kcal"); if meal.vegetarian { Pill(text: "Vegetarian") } }
+                        HStack { Pill(text: "\(meal.calories) kcal / serving"); if meal.vegetarian { Pill(text: "Vegetarian") } }
                     }
                 }.buttonStyle(.plain)
             }
-            if meals.isEmpty { Surface { EmptyCard(title: "Let's try another idea", message: "Change your search or switch off the calorie filter.", icon: "magnifyingglass") } }
-            Text("Check ingredients for your dietary needs. Portions and preparation affect calories.").font(.caption).foregroundStyle(.secondary)
-        }.navigationTitle("Meals").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search meals or ingredients")
+            if meals.isEmpty {
+                Surface { EmptyCard(title: diary.savedMeals.isEmpty ? "No saved meals yet" : "No matching meals", message: diary.savedMeals.isEmpty ? "Create a meal using your own serving, ingredients and calories. No sample meals are included." : "Change your search or filters to see more of your saved meals.", icon: "fork.knife") }
+            }
+        }.navigationTitle("Meals").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search your saved meals")
+        .sheet(isPresented: $adding) { MealEditorScreen().adaptiveEntrySheet() }
     }
 }
 
 struct MealDetailScreen: View {
     @EnvironmentObject var diary: Diary
     let meal: Meal
+    @Environment(\.dismiss) private var dismiss
+    @State private var editing = false
+    private var current: Meal { diary.savedMeals.first { $0.id == meal.id } ?? meal }
     @State private var servings = 1
     @State private var category = "Lunch"
     @State private var date = Date()
@@ -110,22 +121,27 @@ struct MealDetailScreen: View {
     var body: some View {
         Form {
             Section {
-                MealArtwork(meal: meal).listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
-                Text(meal.name).font(.system(.title2, design: .rounded).weight(.bold))
-                Text(meal.detail)
-                ValueRow(title: "Estimated energy", value: "\(meal.calories * servings) kcal")
-                Text("These are meal ideas, not measured recipes. Portions and preparation affect calories.").font(.footnote).foregroundStyle(.secondary)
+                MealArtwork(meal: current).listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                Text(current.name).font(.system(.title2, design: .rounded).weight(.bold))
+                Text(current.detail)
+                ValueRow(title: "Your serving energy", value: "\(current.calories * servings) kcal")
+                Text("Calories and ingredients were entered by you. Confirm the information for the portion you eat.").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Your portion") {
-                Stepper("\(servings) serving(s)", value: $servings, in: 1...10)
+                Stepper("\(servings) serving(s)", value: $servings, in: 1...max(1, min(10, 10000 / current.calories)))
                 Picker("Meal", selection: $category) { ForEach(mealCategories, id: \.self) { Text($0) } }
-                Button("Log as eaten now") { if diary.upsertFood(Food(name: "\(meal.name) (\(servings) serving(s))", calories: meal.calories * servings, category: category)) { feedback = "Added to today's diary." } }
+                Button("Log as eaten now") { if diary.upsertFood(Food(name: "\(current.name) (\(servings) serving(s))", calories: current.calories * servings, category: category)) { feedback = "Added to today's diary." } }
             }
             Section("Plan ahead") {
                 DatePicker("Planned day", selection: $date, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: .date)
-                Button("Add to meal plan") { if diary.transaction({ $0.planned = ($0.planned ?? []) + [PlannedMeal(date: date, name: "\(meal.name) (\(servings) serving(s))", calories: meal.calories * servings, category: category)] }) { feedback = "Added to your meal plan." } }
+                Button("Add to meal plan") { if diary.transaction({ $0.planned = ($0.planned ?? []) + [PlannedMeal(date: date, name: "\(current.name) (\(servings) serving(s))", calories: current.calories * servings, category: category)] }) { feedback = "Added to your meal plan." } }
             }
         }.navigationTitle("Meal details").navigationBarTitleDisplayMode(.inline)
+        .toolbar { Button("Edit") { editing = true } }
+        .sheet(isPresented: $editing, onDismiss: {
+            if !diary.savedMeals.contains(where: { $0.id == meal.id }) { dismiss() }
+            servings = min(servings, max(1, min(10, 10000 / current.calories)))
+        }) { MealEditorScreen(existing: current).adaptiveEntrySheet() }
         .alert("Saved", isPresented: Binding(get: { feedback != nil }, set: { if !$0 { feedback = nil } })) { Button("OK") { feedback = nil } } message: { Text(feedback ?? "") }
     }
 }
@@ -136,7 +152,7 @@ struct MealPlanScreen: View {
     var body: some View {
         List {
             Section { DatePicker("Day", selection: $date, displayedComponents: .date); ValueRow(title: "Planned energy", value: "\(meals.reduce(0) { $0 + $1.calories }) kcal") }
-            if meals.isEmpty { EmptyCard(title: "A day to plan", message: "Open a meal from Meal inspiration to add it to this day.", icon: "calendar") }
+            if meals.isEmpty { EmptyCard(title: "A day to plan", message: "Create a meal in the Meals tab, then add it to this day.", icon: "calendar") }
             ForEach(meals) { meal in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(meal.name).font(.headline)
@@ -181,7 +197,7 @@ struct ProgressScreen: View {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("ONE DAY AT A TIME").font(.caption2.bold()).tracking(2).foregroundStyle(NourishStyle.accent)
-                    Text("Look how far you've come.").font(.system(.title2, design: .rounded).weight(.bold))
+                    Text(diary.foods.isEmpty ? "Your progress starts here." : "Look how far you've come.").font(.system(.title2, design: .rounded).weight(.bold))
                     HStack(alignment: .firstTextBaseline) {
                         Text("\(days.filter { total($0) > 0 }.count)").font(.system(size: 44, weight: .semibold, design: .rounded))
                         Text("of 7 days with food logged").font(.subheadline).foregroundStyle(.secondary)
@@ -192,10 +208,10 @@ struct ProgressScreen: View {
                 ForEach(days, id: \.self) { date in
                     VStack(alignment: .leading, spacing: 6) {
                         ValueRow(title: date.formatted(.dateTime.weekday(.abbreviated).day()), value: "\(total(date)) kcal")
-                        ProgressView(value: min(Double(total(date)) / max(1, diary.profile.target), 1)).tint(nourishGreen)
+                        if let target = diary.profile.target { ProgressView(value: min(Double(total(date)) / max(1, target), 1)).tint(nourishGreen) }
                     }.padding(.vertical, 4)
                 }
-                Text("Bars compare logged food to your current target. An empty day means no entries, not zero food eaten.").font(.footnote).foregroundStyle(.secondary)
+                Text("Bars appear when you set a target. An empty day means no entries, not zero food eaten.").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Weight history") {
                 Button("Log weight") { logging = true }
@@ -227,6 +243,55 @@ struct WeightLogScreen: View {
                     if diary.logWeight(WeightEntry(date: date, kilograms: weight)) { dismiss() }
                 }.disabled(NumberDraftField.value(weight, range: 20...400) == nil) }
             }
-        }.onAppear { if weight.isEmpty { weight = diary.profile.weight.formatted(.number.grouping(.never)) } }
+        }.onAppear { if weight.isEmpty { weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? "" } }
+    }
+}
+
+struct MealEditorScreen: View {
+    @EnvironmentObject var diary: Diary
+    @Environment(\.dismiss) private var dismiss
+    var existing: Meal? = nil
+    @State private var name = ""
+    @State private var ingredients = ""
+    @State private var calories = ""
+    @State private var vegetarian = false
+    @State private var loaded = false
+    @State private var deleting = false
+    @FocusState private var focused: Bool
+    private var validCalories: Int? { guard let value = Int(calories), (1...10000).contains(value) else { return nil }; return value }
+    private var valid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 500 && !ingredients.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ingredients.count <= 2000 && validCalories != nil }
+    var body: some View {
+        AdaptiveNavigation {
+            Form {
+                Section("Your meal") {
+                    TextField("Meal name", text: $name).focused($focused)
+                    TextField("Ingredients and serving description", text: $ingredients).focused($focused)
+                    TextField("Calories per serving (kcal)", text: $calories).keyboardType(.numberPad).focused($focused)
+                    Toggle("This meal is vegetarian", isOn: $vegetarian)
+                }
+                Section { Text("Enter calories for your actual serving using its nutrition label or another source you trust. Ingredient descriptions are used by your preference filters. No nutrition values are generated by the app.").font(.footnote) }
+                if let existing { Section { Button("Delete saved meal", role: .destructive) { deleting = true }.accessibilityLabel("Delete \(existing.name)") } }
+                if let error = diary.storageError { Text(error).foregroundStyle(.red) }
+            }.navigationTitle(existing == nil ? "Create meal" : "Edit meal").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(!valid) }
+                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focused = false } }
+            }
+            .alert("Delete saved meal?", isPresented: $deleting) {
+                Button("Delete", role: .destructive) { if let existing, diary.transaction({ $0.savedMeals?.removeAll { $0.id == existing.id } }) { dismiss() } }
+                Button("Cancel", role: .cancel) { }
+            } message: { Text("Your logged food and planned meals are kept. Only this reusable meal is removed.") }
+        }.onAppear { if !loaded { name = existing?.name ?? ""; ingredients = existing?.detail ?? ""; calories = existing.map { String($0.calories) } ?? ""; vegetarian = existing?.vegetarian ?? false; loaded = true } }
+    }
+    private func save() {
+        guard valid, let calories = validCalories else { return }
+        var meal = Meal(name: name.trimmingCharacters(in: .whitespacesAndNewlines), detail: ingredients.trimmingCharacters(in: .whitespacesAndNewlines), calories: calories, vegetarian: vegetarian)
+        if let existing { meal.id = existing.id }
+        if diary.transaction({ saved in
+            var meals = saved.savedMeals ?? []
+            if let index = meals.firstIndex(where: { $0.id == meal.id }) { meals[index] = meal } else { meals.append(meal) }
+            saved.savedMeals = meals
+        }) { dismiss() }
     }
 }

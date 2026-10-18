@@ -147,14 +147,37 @@ final class DiaryTests: XCTestCase {
         XCTAssertEqual(restored.foods.first?.calories, 200)
     }
     func testMealPreferencesActuallyFilterAndNormalizeTerms() {
-        let terms = Meal.exclusionTerms(" Yogurt, yogurt, , SALMON ")
-        XCTAssertEqual(terms, ["yogurt", "salmon"])
-        XCTAssertEqual(Meal.ideas.filter { $0.matches(preference: "Balanced") }.count, 5)
-        XCTAssertEqual(Meal.ideas.filter { $0.matches(preference: "Vegetarian") }.count, 3)
-        let matched = Meal.ideas.filter { $0.matches(preference: "Vegetarian", excluding: terms) }
-        XCTAssertEqual(matched.count, 2)
-        XCTAssertTrue(matched.allSatisfy { $0.vegetarian && !$0.name.localizedCaseInsensitiveContains("yogurt") })
-        XCTAssertTrue(Meal.ideas.filter { $0.matches(preference: "Balanced", excluding: ["rice", "yogurt", "tofu", "salmon", "hummus"]) }.isEmpty)
+        // Inputs belong only to this test target; no fixtures are bundled in the app.
+        let meals = [Meal(name: "Entry A", detail: "Ingredient A", calories: 101, vegetarian: true), Meal(name: "Entry B", detail: "Ingredient B", calories: 202, vegetarian: false)]
+        let terms = Meal.exclusionTerms(" Ingredient A, ingredient a, , INGREDIENT B ")
+        XCTAssertEqual(terms, ["ingredient a", "ingredient b"])
+        XCTAssertEqual(meals.filter { $0.matches(preference: "Balanced") }.count, 2)
+        XCTAssertEqual(meals.filter { $0.matches(preference: "Vegetarian") }.count, 1)
+        XCTAssertTrue(meals.filter { $0.matches(preference: "Vegetarian", excluding: terms) }.isEmpty)
+    }
+    func testNewProfileAndDiaryHaveNoSeededData() throws {
+        let snapshot = try DiarySnapshot.decode(DiarySnapshot.empty.encoded())
+        XCTAssertNil(snapshot.profile.height); XCTAssertNil(snapshot.profile.weight); XCTAssertNil(snapshot.profile.target)
+        XCTAssertTrue(snapshot.profile.goal.isEmpty); XCTAssertTrue(snapshot.profile.preferences.isEmpty)
+        XCTAssertTrue(snapshot.foods.isEmpty); XCTAssertTrue((snapshot.savedMeals ?? []).isEmpty)
+        XCTAssertTrue((snapshot.planned ?? []).isEmpty); XCTAssertTrue((snapshot.weights ?? []).isEmpty); XCTAssertTrue((snapshot.water ?? []).isEmpty)
+    }
+    func testUserMealsPersistWithoutSeedingOtherMeals() async throws {
+        try await MainActor.run {
+            let url = try temporaryURL()
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            let diary = Diary(url: url)
+            XCTAssertNil(diary.remaining)
+            let meal = Meal(name: "User entry", detail: "User ingredients and serving", calories: 321, vegetarian: true)
+            XCTAssertTrue(diary.transaction { $0.savedMeals = [meal] })
+            let reloaded = Diary(url: url)
+            XCTAssertEqual(reloaded.savedMeals.count, 1); XCTAssertEqual(reloaded.savedMeals.first?.id, meal.id)
+            let restored = try DiarySnapshot.decode(reloaded.backupData())
+            XCTAssertEqual(restored.savedMeals?.first?.calories, 321)
+            XCTAssertTrue(diary.transaction { $0.savedMeals = [] })
+            XCTAssertTrue(Diary(url: url).savedMeals.isEmpty)
+            XCTAssertNil(Diary(url: url).profile.target)
+        }
     }
     func testExpandedProfileRejectsInvalidOptionalFields() throws {
         var saved = DiarySnapshot.empty

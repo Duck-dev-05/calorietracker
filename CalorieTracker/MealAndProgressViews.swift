@@ -76,7 +76,10 @@ struct MealsView: View {
     @State private var adding = false
     private var meals: [Meal] {
         diary.savedMeals.filter { meal in
-            meal.matches(preference: diary.profile.preferences, excluding: diary.profile.excludedIngredients ?? []) && (!onlyFits || diary.remaining.map { meal.calories <= $0 } == true) && (search.isEmpty || (meal.name + meal.detail).localizedCaseInsensitiveContains(search))
+            guard meal.matches(preference: diary.profile.preferences, excluding: diary.profile.excludedIngredients ?? []) else { return false }
+            guard search.isEmpty || (meal.name + " " + meal.detail).localizedCaseInsensitiveContains(search) else { return false }
+            if onlyFits, let remaining = diary.remaining { return meal.calories <= remaining }
+            return true
         }
     }
     var body: some View {
@@ -86,7 +89,7 @@ struct MealsView: View {
             NavigationLink(destination: MealPlanScreen()) { Surface { RouteRow(title: "Your meal planner", subtitle: "Plan from your saved meals", icon: "calendar") } }.buttonStyle(.plain)
             if !diary.savedMeals.isEmpty {
                 Surface {
-                    Toggle("Fits my remaining calories", isOn: $onlyFits).disabled(diary.remaining == nil)
+                    Toggle("Fits my remaining calories", isOn: Binding(get: { onlyFits && diary.remaining != nil }, set: { onlyFits = $0 })).disabled(diary.remaining == nil)
                     Text(diary.remaining.map { "\(max(0, $0)) kcal remaining today" } ?? "Set a daily target to filter by remaining calories.").font(.caption).foregroundStyle(.secondary)
                 }
             }

@@ -5,7 +5,7 @@ struct OnboardingView: View {
     @EnvironmentObject var diary: Diary
     @State private var step = 0
     var body: some View {
-        NavigationView {
+        AdaptiveNavigation {
             VStack(spacing: 20) {
                 HStack(spacing: 8) {
                     ForEach(0..<3, id: \.self) { index in Capsule().fill(index <= step ? NourishStyle.accent : Color.secondary.opacity(0.15)).frame(height: 5) }
@@ -52,7 +52,7 @@ struct OnboardingView: View {
                         .buttonStyle(PrimaryAction())
                 }.padding()
             }.background(NourishStyle.canvas.ignoresSafeArea()).navigationTitle(step == 0 ? "Nourish" : "Your setup").navigationBarTitleDisplayMode(.inline)
-        }.navigationViewStyle(.stack)
+        }
     }
 }
 struct MealsView: View {
@@ -193,7 +193,7 @@ struct ProgressScreen: View {
                         .swipeActions { Button("Delete", role: .destructive) { diary.weights.removeAll { $0.id == entry.id } } }
                 }
             }
-        }.navigationTitle("Your progress").sheet(isPresented: $logging) { WeightLogScreen() }
+        }.navigationTitle("Your progress").sheet(isPresented: $logging) { WeightLogScreen().adaptiveEntrySheet() }
     }
 }
 struct WeightLogScreen: View {
@@ -202,12 +202,12 @@ struct WeightLogScreen: View {
     @State private var weight = 70.0
     @State private var date = Date()
     var body: some View {
-        NavigationView {
+        AdaptiveNavigation {
             Form { NumericRow(title: "Weight (kg)", value: $weight, range: 20...400); DatePicker("Measured", selection: $date, in: ...Date()); Text("Logging updates your profile only when this is your latest measurement.").font(.footnote) }
                 .navigationTitle("Log weight").toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Save") { if date >= (diary.weights.map(\.date).max() ?? .distantPast) { diary.profile.weight = weight }; diary.weights.append(WeightEntry(date: date, kilograms: weight)); dismiss() } }
                 }
-        }.navigationViewStyle(.stack).onAppear { weight = diary.profile.weight }
+        }.onAppear { weight = diary.profile.weight }
     }
 }

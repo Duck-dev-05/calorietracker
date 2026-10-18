@@ -73,3 +73,21 @@ Additional device checks for the screen build:
 - Add/delete water and dated weights; an older weight should not replace the latest profile weight.
 - Confirm existing pre-screen-build diary JSON loads without losing entries.
 - Switch light/dark/system appearance, relaunch, and test all pages at large text sizes.
+
+## Adaptive interface by iOS version
+
+One IPA keeps the same features and stored diary across versions:
+
+| Device OS | Interface |
+| --- | --- |
+| iOS 15 | Classic stack navigation, native tabs and sheets, 20-point card corners. |
+| iOS 16–18 | NavigationStack, large entry sheets with drag handles, 24-point cards. On 16.4+, sheets use rounded corners and short pages only bounce when needed. |
+| iOS 26+ | Native Liquid Glass tabs/toolbars via the Xcode 26 SDK, scroll-minimizing tabs, system sheet styling and 28-point cards. Reduce Motion disables tab minimization. |
+
+Settings shows the active interface generation automatically. Individual OS releases render their own native controls; the app does not force a separate theme for every point release. Content cards remain solid for readability. Light/dark/system preferences work in every generation.
+
+The cloud workflow explicitly selects Xcode 26.0.1 while retaining the iOS 15 deployment target. For full local iOS 26 styling, use Xcode 26+. Older compilers omit tab minimization via a compiler guard. OS availability checks protect every newer runtime API.
+
+TrollStore compatibility is separate from UI compatibility: do not update your phone merely to get newer styling. Use a supported installation method for its actual OS. No iOS 26 TrollStore support is claimed.
+
+Verification: cloud device compilation is required; visually test navigation push/back, all entry sheets, keyboard dismissal, tab scrolling, Reduce Motion and both color schemes on each OS generation available to you.

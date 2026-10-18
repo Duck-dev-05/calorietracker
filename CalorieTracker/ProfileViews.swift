@@ -126,6 +126,8 @@ struct SettingsScreen: View {
             Section("Display") {
                 Picker("Appearance", selection: $appearance) { ForEach(["System", "Light", "Dark"], id: \.self) { Text($0) } }
                 ValueRow(title: "Measurements", value: "cm · kg · mL")
+                ValueRow(title: "Interface", value: InterfaceGeneration.name)
+                Text(InterfaceGeneration.explanation).font(.footnote).foregroundStyle(.secondary)
             }
             Section("Your information") {
                 NavigationLink("Privacy & storage", destination: PrivacyScreen())

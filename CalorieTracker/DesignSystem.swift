@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shared visual vocabulary, using APIs available on iOS 15.
+/// Shared visual vocabulary with version-aware presentation and an iOS 15 baseline.
 enum NourishStyle {
     static let canvas = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.065, green: 0.085, blue: 0.075, alpha: 1) : UIColor(red: 0.96, green: 0.965, blue: 0.94, alpha: 1) })
     static let surface = Color(UIColor.secondarySystemGroupedBackground)
@@ -13,7 +13,7 @@ struct PageCanvas<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
         ScrollView { VStack(alignment: .leading, spacing: 24) { content }.padding(20).frame(maxWidth: 680).frame(maxWidth: .infinity) }
-            .background(NourishStyle.canvas.ignoresSafeArea())
+            .background(NourishStyle.canvas.ignoresSafeArea()).modifier(AdaptiveScroll())
     }
 }
 struct Surface<Content: View>: View {
@@ -21,8 +21,8 @@ struct Surface<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) { content }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .background(NourishStyle.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.primary.opacity(0.045), lineWidth: 1))
+            .background(NourishStyle.surface, in: RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous).stroke(Color.primary.opacity(0.045), lineWidth: 1))
     }
 }
 struct PageIntro: View {

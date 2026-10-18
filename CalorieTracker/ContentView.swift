@@ -14,12 +14,12 @@ struct ContentView: View {
         Group {
             if onboarded {
                 TabView {
-                    NavigationView { DashboardView() }.navigationViewStyle(.stack).tabItem { Label("Today", systemImage: "house.fill") }
-                    NavigationView { DiaryView() }.navigationViewStyle(.stack).tabItem { Label("Diary", systemImage: "book.closed.fill") }
-                    NavigationView { MealsView() }.navigationViewStyle(.stack).tabItem { Label("Meals", systemImage: "fork.knife") }
-                    NavigationView { ProgressScreen() }.navigationViewStyle(.stack).tabItem { Label("Progress", systemImage: "chart.bar.fill") }
-                    NavigationView { ProfileScreen() }.navigationViewStyle(.stack).tabItem { Label("You", systemImage: "person.crop.circle") }
-                }
+                    AdaptiveNavigation { DashboardView() }.tabItem { Label("Today", systemImage: "house.fill") }
+                    AdaptiveNavigation { DiaryView() }.tabItem { Label("Diary", systemImage: "book.closed.fill") }
+                    AdaptiveNavigation { MealsView() }.tabItem { Label("Meals", systemImage: "fork.knife") }
+                    AdaptiveNavigation { ProgressScreen() }.tabItem { Label("Progress", systemImage: "chart.bar.fill") }
+                    AdaptiveNavigation { ProfileScreen() }.tabItem { Label("You", systemImage: "person.crop.circle") }
+                }.modifier(AdaptiveTabs())
             } else { OnboardingView() }
         }.tint(nourishGreen)
         .preferredColorScheme(appearance == "System" ? nil : (appearance == "Dark" ? .dark : .light))
@@ -103,7 +103,7 @@ struct DashboardView: View {
             Text("Activity is shown separately from your food target.").font(.caption).foregroundStyle(.secondary)
         }.navigationTitle("Nourish").navigationBarTitleDisplayMode(.inline)
         .toolbar { NavigationLink(destination: ProfileScreen()) { Image(systemName: "person.crop.circle").font(.title3) }.accessibilityLabel("Your profile") }
-        .sheet(isPresented: $adding) { AddFoodView() }.onReceive(timer) { clock = $0 }
+        .sheet(isPresented: $adding) { AddFoodView().adaptiveEntrySheet() }.onReceive(timer) { clock = $0 }
     }
     private func balance(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 6) { Text(title).font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.65)); Text(value).font(.system(.title2, design: .rounded).weight(.semibold)) + Text(" kcal").font(.caption) }
@@ -136,7 +136,7 @@ struct DiaryView: View {
                 }
             }
         }.listStyle(.insetGrouped).navigationTitle("Food diary").toolbar { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Add food") }
-        .sheet(isPresented: $adding) { AddFoodView(initialDate: date) }
+        .sheet(isPresented: $adding) { AddFoodView(initialDate: date).adaptiveEntrySheet() }
     }
 }
 struct AddFoodView: View {
@@ -151,7 +151,7 @@ struct AddFoodView: View {
     @FocusState private var fieldFocused: Bool
     private var validCalories: Int? { guard let value = Int(calories), (1...10000).contains(value) else { return nil }; return value }
     var body: some View {
-        NavigationView {
+        AdaptiveNavigation {
             Form {
                 Section("Your serving") {
                     TextField("Food or meal name", text: $name).focused($fieldFocused)
@@ -173,7 +173,7 @@ struct AddFoodView: View {
                     }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validCalories == nil)
                 }
             }
-        }.navigationViewStyle(.stack).onAppear {
+        }.onAppear {
             name = existing?.name ?? ""; calories = existing.map { String($0.calories) } ?? ""
             category = existing?.category ?? "Breakfast"; date = existing?.date ?? initialDate
         }
@@ -196,7 +196,7 @@ struct FoodDetailScreen: View {
             }
             Button("Edit entry") { editing = true }
             Button("Delete entry", role: .destructive) { deleting = true }
-        }.navigationTitle("Food details").sheet(isPresented: $editing) { AddFoodView(existing: current) }
+        }.navigationTitle("Food details").sheet(isPresented: $editing) { AddFoodView(existing: current).adaptiveEntrySheet() }
         .alert("Delete this entry?", isPresented: $deleting) {
             Button("Delete", role: .destructive) { diary.foods.removeAll { $0.id == food.id }; dismiss() }
             Button("Cancel", role: .cancel) { }

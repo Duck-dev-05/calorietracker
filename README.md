@@ -27,11 +27,11 @@ Install Xcode, XcodeGen and ldid (`brew install xcodegen ldid`), then run `bash 
 - Fitness activity is accessed through the shared HealthKit store, not by opening the Fitness app. Active calories are displayed separately to avoid automatically adding exercise calories to the food budget.
 - Missing Health values are displayed as unavailable: HealthKit does not reveal whether read permission was denied. The permission sheet completing does not prove access was granted.
 - No food logs are imported from or exported to Health, avoiding duplicate counting. Refresh is manual and on foreground when the saved refresh preference is enabled. No background sync.
-- Local JSON is written atomically with complete file protection. No network calls or account. Device backups follow OS settings. There is no cloud sync or export yet. Existing diary files are migrated by treating new collections as optional. If loading fails, writes are blocked to preserve the original file.
+- Local JSON is written atomically with complete file protection. No network calls or account. Device backups follow OS settings. There is no automatic cloud sync. Backup & restore exports/imports versioned JSON through Files. Restore previews the file and preserves the previous bytes locally before replacing them. Existing diary files are migrated by treating new collections and schema version as optional. If loading fails, a dedicated recovery screen blocks editing and offers retry, original-file export, backup restore, and an archive-before-reset option.
 
 ## Verification
 
-This project was authored on Windows; Xcode/SwiftUI and iPhone execution are unavailable here. The included cloud build has not been run from this workspace. Compilation, IPA installation, UI layout and HealthKit behavior must be verified by running the workflow and testing on an iPhone before release.
+This project was authored on Windows; Xcode/SwiftUI and iPhone execution are unavailable here. Previous cloud builds have passed and the user confirmed IPA launch on an iPhone. New builds run the storage test suite before compiling the app. Backup dialogs, recovery interactions, UI layout and HealthKit behavior still require on-device verification before release.
 
 Device checklist:
 - Run the IPA workflow; verify the resulting app installs and launches through TrollStore on iOS 15.
@@ -91,3 +91,17 @@ The cloud workflow explicitly selects Xcode 26.0.1 while retaining the iOS 15 de
 TrollStore compatibility is separate from UI compatibility: do not update your phone merely to get newer styling. Use a supported installation method for its actual OS. No iOS 26 TrollStore support is claimed.
 
 Verification: cloud device compilation is required; visually test navigation push/back, all entry sheets, keyboard dismissal, tab scrolling, Reduce Motion and both color schemes on each OS generation available to you.
+
+## Critical data-protection pages (0.2.0)
+
+- You → Settings → Backup & restore: export your journal to Files, choose and validate a JSON backup, inspect entry counts, and confirm replacement. A local recovery copy is written before replacement; export the previous file from the same page.
+- Storage recovery appears automatically instead of editable screens when the diary cannot load. Retry, export original bytes, restore a known backup, or confirm archive-and-reset. A failed archive prevents replacement/reset.
+- Onboarding, personal details, goals and weight entry now keep draft input and explicitly validate/save. Food and weight forms close only after storage commits successfully.
+- A planned meal is moved into the diary in one transaction, and repeated taps after success cannot create a second entry.
+- All legacy computed model bindings now commit candidate snapshots to disk before publishing changed state. Data is versioned and validated; duplicate identifiers and unsupported backup versions are rejected.
+- Backups contain personal information and are not app-encrypted. App appearance and Health permissions are not included. Maximum supported JSON file size is 10 MB and maximum combined entry count is 100,000. Files from older app versions are accepted if valid. There is no merge function.
+- Storage transactions are serialized on the main actor and perform synchronous local file writes in this iteration. Moving large-file encoding/I/O off the main thread, shared day context and complete measurement-source reconciliation remain follow-up work.
+
+Tests on macOS: `swift test`. The package isolates Models.swift and Diary.swift from SwiftUI and HealthKit. CI runs tests for old-file migration, invalid backup rejection, failed saves, atomic/idempotent meal transfer, corrupt-file preservation, backup round trip, failed restore, future-plan rejection and backdated weights.
+
+Device acceptance: export/restore a test journal; cancel import/confirmation; try a malformed backup; check IDs/totals after relaunch; test numeric fields and keyboard Done on iOS 15 and modern iOS. Keep a personal backup before testing destructive restore/reset flows.

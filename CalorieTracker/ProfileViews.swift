@@ -42,31 +42,50 @@ struct ProfileScreen: View {
 }
 struct PersonalDetailsScreen: View {
     @EnvironmentObject var diary: Diary
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var height = ""
+    @State private var weight = ""
+    @State private var loaded = false
+    private var valid: Bool { name.count <= 200 && NumberDraftField.value(height, range: 80...250) != nil && NumberDraftField.value(weight, range: 20...400) != nil }
     var body: some View {
         Form {
-            Section("About you") { TextField("Your name", text: Binding(get: { diary.profile.name ?? "" }, set: { diary.profile.name = $0 })) }
+            Section("About you") { TextField("Your name", text: $name) }
             Section("Measurements") {
-                NumericRow(title: "Height (cm)", value: $diary.profile.height, range: 80...250)
-                NumericRow(title: "Weight (kg)", value: $diary.profile.weight, range: 20...400)
+                NumberDraftField(title: "Height (cm)", text: $height, range: 80...250)
+                NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400)
             }
-            Section { Text("You can also import available measurements from Apple Health.").font(.footnote); NavigationLink("Open Apple Health connection", destination: HealthScreen()) }
+            Section { Text("Changes are applied only when you save. Apple Health imports are available on the connection page.").font(.footnote) }
+            if let error = diary.storageError { Text(error).foregroundStyle(.red) }
         }.navigationTitle("Personal details").navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") {
+            guard let height = NumberDraftField.value(height, range: 80...250), let weight = NumberDraftField.value(weight, range: 20...400) else { return }
+            if diary.transaction({ $0.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); $0.profile.height = height; $0.profile.weight = weight }) { dismiss() }
+        }.disabled(!valid) } }
+        .onAppear { if !loaded { name = diary.profile.name ?? ""; height = diary.profile.height.formatted(.number.grouping(.never)); weight = diary.profile.weight.formatted(.number.grouping(.never)); loaded = true } }
     }
 }
-
 struct GoalsScreen: View {
     @EnvironmentObject var diary: Diary
+    @Environment(\.dismiss) private var dismiss
+    @State private var goal = "Maintain"
+    @State private var target = ""
+    @State private var loaded = false
     var body: some View {
         Form {
-            Section("Your direction") {
-                Picker("Goal", selection: $diary.profile.goal) { ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } }
-            }
+            Section("Your direction") { Picker("Goal", selection: $goal) { ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } } }
             Section("Daily calorie target") {
-                NumericRow(title: "Target (kcal)", value: $diary.profile.target, range: 500...10000)
-                Text("Choose your own daily target. The initial 2,000 kcal is a placeholder. Your height, weight and goal are recorded, but do not yet generate a personalized calorie recommendation.").font(.footnote)
+                NumberDraftField(title: "Target (kcal)", text: $target, range: 500...10000)
+                Text("Set your own target. Input limits are not recommendations. Height and weight do not yet calculate a personalized target.").font(.footnote)
             }
-            Section("Activity") { Text("Steps and active calories from Apple Health are displayed separately. Exercise does not automatically increase your food target.") }
-        }.navigationTitle("Goals & target")
+            Section("Activity") { Text("Activity calories are displayed separately and do not automatically increase your food target.") }
+            if let error = diary.storageError { Text(error).foregroundStyle(.red) }
+        }.navigationTitle("Goals & target").navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Save") {
+            guard let target = NumberDraftField.value(target, range: 500...10000) else { return }
+            if diary.transaction({ $0.profile.goal = goal; $0.profile.target = target }) { dismiss() }
+        }.disabled(NumberDraftField.value(target, range: 500...10000) == nil) } }
+        .onAppear { if !loaded { goal = diary.profile.goal; target = diary.profile.target.formatted(.number.grouping(.never)); loaded = true } }
     }
 }
 struct PreferencesScreen: View {
@@ -130,6 +149,7 @@ struct SettingsScreen: View {
                 Text(InterfaceGeneration.explanation).font(.footnote).foregroundStyle(.secondary)
             }
             Section("Your information") {
+                NavigationLink(destination: BackupScreen()) { Label("Backup & restore", systemImage: "externaldrive") }
                 NavigationLink("Privacy & storage", destination: PrivacyScreen())
                 Button("Review welcome setup") { replay = true }
             }
@@ -150,7 +170,8 @@ struct PrivacyScreen: View {
         List {
             Section("Stored on your device") { Text("Your profile, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
             Section("Apple Health") { Text("Nourish requests read access to height, body mass, steps and active energy only when you choose to connect. Health results are displayed in memory. Measurements are saved to your profile only when you import them.") }
-            Section("Network & accounts") { Text("No account, advertising, analytics or server connection is used by the app. There is no cloud synchronization or data export in this version.") }
+            Section("Network & accounts") { Text("No account, advertising, analytics or server connection is used by the app. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
+            Section("Backups & recovery") { NavigationLink("Open backup & restore", destination: BackupScreen()); Text("Before replacing or resetting a diary, Nourish preserves the old file on this device. Keep an exported copy before uninstalling the app.") }
             Section("Managing entries") { Text("Swipe left on diary, weight, water or planned meal entries to remove them. Food details also let you edit or delete a food entry. Health access can be revoked in Apple Health.") }
         }.navigationTitle("Privacy & storage")
     }
@@ -163,6 +184,7 @@ struct HelpScreen: View {
             Section("Where do calories come from?") { Text("Food diary calories are entered by you. The built-in meal ideas have illustrative calorie estimates. There is no barcode scanner, photo analysis or live nutrition database yet.") }
             Section("Why is Health data unavailable?") { Text("Check that Apple Health contains records and Nourish has read permission. Open You → Apple Health and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
             Section("How is my target calculated?") { Text("It is currently set manually. Recording your measurements and goal does not automatically calculate it. The app does not prescribe a diet.") }
+            Section("How do I keep a backup?") { Text("Open You → Settings → Backup & restore. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }
             Section("About Nourish") { Text("A personal food and activity journal for iPhone, with iOS 15 support and a TrollStore IPA build workflow.") }
         }.navigationTitle("Help & about")
     }

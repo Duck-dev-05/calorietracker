@@ -12,7 +12,9 @@ struct ContentView: View {
     @AppStorage("healthEnabled") private var healthEnabled = false
     var body: some View {
         Group {
-            if onboarded {
+            if diary.storageBlocked {
+                AdaptiveNavigation { StorageRecoveryScreen() }
+            } else if onboarded {
                 TabView {
                     AdaptiveNavigation { DashboardView() }.tabItem { Label("Today", systemImage: "house.fill") }
                     AdaptiveNavigation { DiaryView() }.tabItem { Label("Diary", systemImage: "book.closed.fill") }
@@ -47,18 +49,6 @@ struct ValueRow: View {
     let title: String
     let value: String
     var body: some View { HStack(alignment: .firstTextBaseline, spacing: 16) { Text(title).fixedSize(horizontal: false, vertical: true); Spacer(minLength: 8); Text(value).font(.system(.body, design: .rounded).weight(.medium)).foregroundStyle(.secondary).multilineTextAlignment(.trailing) }.padding(.vertical, 3) }
-}
-struct NumericRow: View {
-    let title: String
-    @Binding var value: Double
-    var range: ClosedRange<Double> = 1...10000
-    var body: some View {
-        HStack {
-            Text(title); Spacer()
-            TextField(title, value: Binding(get: { value }, set: { if $0.isFinite { value = min(max($0, range.lowerBound), range.upperBound) } }), format: .number)
-                .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100)
-        }
-    }
 }
 struct DashboardView: View {
     @EnvironmentObject var diary: Diary
@@ -131,7 +121,7 @@ struct DiaryView: View {
                 Section(category) {
                     ForEach(entries.filter { ($0.category ?? "Snacks") == category }) { food in
                         NavigationLink(destination: FoodDetailScreen(food: food)) { HStack(spacing: 12) { IconTile(icon: "fork.knife"); VStack(alignment: .leading, spacing: 4) { Text(food.name).font(.headline); Text(food.date, style: .time).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(food.calories)").font(.system(.body, design: .rounded).weight(.semibold)) } .padding(.vertical, 4) }
-                            .swipeActions { Button(role: .destructive) { diary.foods.removeAll { $0.id == food.id } } label: { Label("Delete", systemImage: "trash") } }
+                            .swipeActions { Button(role: .destructive) { diary.deleteFood(food.id) } label: { Label("Delete", systemImage: "trash") } }
                     }
                 }
             }
@@ -160,6 +150,7 @@ struct AddFoodView: View {
                     DatePicker("When", selection: $date, in: ...Date())
                 }
                 Section { Text("Enter calories for the portion you ate. Use its nutrition label or a trusted food reference.") }
+                if let error = diary.storageError { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }.navigationTitle(existing == nil ? "Log food" : "Edit food").navigationBarTitleDisplayMode(.inline).toolbar {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { fieldFocused = false } }
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -167,9 +158,8 @@ struct AddFoodView: View {
                     Button("Save") {
                         guard let value = validCalories else { return }
                         var food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: value, date: date, category: category)
-                        if let existing, let index = diary.foods.firstIndex(where: { $0.id == existing.id }) { food.id = existing.id; diary.foods[index] = food }
-                        else { diary.foods.append(food) }
-                        dismiss()
+                        if let existing { food.id = existing.id }
+                        if diary.upsertFood(food) { dismiss() }
                     }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validCalories == nil)
                 }
             }
@@ -198,7 +188,7 @@ struct FoodDetailScreen: View {
             Button("Delete entry", role: .destructive) { deleting = true }
         }.navigationTitle("Food details").sheet(isPresented: $editing) { AddFoodView(existing: current).adaptiveEntrySheet() }
         .alert("Delete this entry?", isPresented: $deleting) {
-            Button("Delete", role: .destructive) { diary.foods.removeAll { $0.id == food.id }; dismiss() }
+            Button("Delete", role: .destructive) { if diary.deleteFood(food.id) { dismiss() } }
             Button("Cancel", role: .cancel) { }
         }
     }

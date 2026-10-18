@@ -4,6 +4,12 @@ struct OnboardingView: View {
     @AppStorage("onboardingComplete") private var complete = false
     @EnvironmentObject var diary: Diary
     @State private var step = 0
+    @State private var draft = Profile()
+    @State private var height = ""
+    @State private var weight = ""
+    @State private var target = ""
+    @State private var loaded = false
+    private var validSetup: Bool { (draft.name?.count ?? 0) <= 200 && NumberDraftField.value(height, range: 80...250) != nil && NumberDraftField.value(weight, range: 20...400) != nil && NumberDraftField.value(target, range: 500...10000) != nil }
     var body: some View {
         AdaptiveNavigation {
             VStack(spacing: 20) {
@@ -24,20 +30,20 @@ struct OnboardingView: View {
                 } else if step == 1 {
                     Form {
                         Section("Make it yours") {
-                            TextField("Your name (optional)", text: Binding(get: { diary.profile.name ?? "" }, set: { diary.profile.name = $0 }))
-                            NumericRow(title: "Height (cm)", value: $diary.profile.height, range: 80...250)
-                            NumericRow(title: "Weight (kg)", value: $diary.profile.weight, range: 20...400)
-                            Picker("Goal", selection: $diary.profile.goal) { ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } }
+                            TextField("Your name (optional)", text: Binding(get: { draft.name ?? "" }, set: { draft.name = $0 }))
+                            NumberDraftField(title: "Height (cm)", text: $height, range: 80...250)
+                            NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400)
+                            Picker("Goal", selection: $draft.goal) { ForEach(["Maintain", "Lose weight", "Gain weight"], id: \.self) { Text($0) } }
                         }
                         Section("Daily target") {
-                            NumericRow(title: "Calories (kcal)", value: $diary.profile.target, range: 500...10000)
-                            Text("2,000 kcal is a starting placeholder. Choose your own target; measurements do not yet calculate it automatically.").font(.footnote)
+                            NumberDraftField(title: "Calories (kcal)", text: $target, range: 500...10000)
+                            Text("Measurements below start with example values. Replace them with yours. The calorie target is manual; input limits are not recommendations.").font(.footnote)
                         }
                     }
                 } else {
                     Form {
                         Section("Choose your food style") {
-                            Picker("Preference", selection: $diary.profile.preferences) { Text("Balanced").tag("Balanced"); Text("Vegetarian").tag("Vegetarian") }
+                            Picker("Preference", selection: $draft.preferences) { Text("Balanced").tag("Balanced"); Text("Vegetarian").tag("Vegetarian") }
                         }
                         Section("Your data, your choice") {
                             Label("Your diary stays on this device", systemImage: "lock.shield")
@@ -48,10 +54,18 @@ struct OnboardingView: View {
                 }
                 HStack {
                     if step > 0 { Button("Back") { step -= 1 }.padding() }
-                    Button(step == 2 ? "Start my day" : "Continue") { if step == 2 { complete = true } else { step += 1 } }
-                        .buttonStyle(PrimaryAction())
+                    Button(step == 2 ? "Save & start my day" : "Continue") {
+                        if step == 2 {
+                            guard let h = NumberDraftField.value(height, range: 80...250), let w = NumberDraftField.value(weight, range: 20...400), let t = NumberDraftField.value(target, range: 500...10000) else { return }
+                            draft.height = h; draft.weight = w; draft.target = t
+                            if diary.transaction({ $0.profile = draft }) { complete = true }
+                        } else { step += 1 }
+                    }.buttonStyle(PrimaryAction()).disabled(step > 0 && !validSetup)
                 }.padding()
+                if let error = diary.storageError { Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal) }
             }.background(NourishStyle.canvas.ignoresSafeArea()).navigationTitle(step == 0 ? "Nourish" : "Your setup").navigationBarTitleDisplayMode(.inline)
+        }.onAppear {
+            if !loaded { draft = diary.profile; height = draft.height.formatted(.number.grouping(.never)); weight = draft.weight.formatted(.number.grouping(.never)); target = draft.target.formatted(.number.grouping(.never)); loaded = true }
         }
     }
 }
@@ -105,11 +119,11 @@ struct MealDetailScreen: View {
             Section("Your portion") {
                 Stepper("\(servings) serving(s)", value: $servings, in: 1...10)
                 Picker("Meal", selection: $category) { ForEach(mealCategories, id: \.self) { Text($0) } }
-                Button("Log as eaten now") { diary.foods.append(Food(name: "\(meal.name) (\(servings) serving(s))", calories: meal.calories * servings, category: category)); feedback = "Added to today's diary." }
+                Button("Log as eaten now") { if diary.upsertFood(Food(name: "\(meal.name) (\(servings) serving(s))", calories: meal.calories * servings, category: category)) { feedback = "Added to today's diary." } }
             }
             Section("Plan ahead") {
                 DatePicker("Planned day", selection: $date, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: .date)
-                Button("Add to meal plan") { diary.planned.append(PlannedMeal(date: date, name: "\(meal.name) (\(servings) serving(s))", calories: meal.calories * servings, category: category)); feedback = "Added to your meal plan." }
+                Button("Add to meal plan") { if diary.transaction({ $0.planned = ($0.planned ?? []) + [PlannedMeal(date: date, name: "\(meal.name) (\(servings) serving(s))", calories: meal.calories * servings, category: category)] }) { feedback = "Added to your meal plan." } }
             }
         }.navigationTitle("Meal details").navigationBarTitleDisplayMode(.inline)
         .alert("Saved", isPresented: Binding(get: { feedback != nil }, set: { if !$0 { feedback = nil } })) { Button("OK") { feedback = nil } } message: { Text(feedback ?? "") }
@@ -129,9 +143,7 @@ struct MealPlanScreen: View {
                     Text("\(meal.category) · \(meal.calories) kcal").foregroundStyle(.secondary)
                     if !Calendar.current.startOfDay(for: date).isAfterToday {
                         Button("Mark as eaten") {
-                            let loggedDate = Calendar.current.isDateInToday(date) ? Date() : Calendar.current.startOfDay(for: date)
-                            diary.foods.append(Food(name: meal.name, calories: meal.calories, date: loggedDate, category: meal.category))
-                            diary.planned.removeAll { $0.id == meal.id }
+                            diary.consumePlan(meal.id)
                         }.buttonStyle(.bordered)
                     }
                 }.swipeActions { Button(role: .destructive) { diary.planned.removeAll { $0.id == meal.id } } label: { Label("Remove", systemImage: "trash") } }
@@ -199,15 +211,22 @@ struct ProgressScreen: View {
 struct WeightLogScreen: View {
     @EnvironmentObject var diary: Diary
     @Environment(\.dismiss) private var dismiss
-    @State private var weight = 70.0
+    @State private var weight = ""
     @State private var date = Date()
     var body: some View {
         AdaptiveNavigation {
-            Form { NumericRow(title: "Weight (kg)", value: $weight, range: 20...400); DatePicker("Measured", selection: $date, in: ...Date()); Text("Logging updates your profile only when this is your latest measurement.").font(.footnote) }
-                .navigationTitle("Log weight").toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Save") { if date >= (diary.weights.map(\.date).max() ?? .distantPast) { diary.profile.weight = weight }; diary.weights.append(WeightEntry(date: date, kilograms: weight)); dismiss() } }
-                }
-        }.onAppear { weight = diary.profile.weight }
+            Form {
+                NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400)
+                DatePicker("Measured", selection: $date, in: ...Date())
+                Text("Your profile updates only when this is the latest logged measurement.").font(.footnote)
+                if let error = diary.storageError { Text(error).foregroundStyle(.red) }
+            }.navigationTitle("Log weight").toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save") {
+                    guard let weight = NumberDraftField.value(weight, range: 20...400) else { return }
+                    if diary.logWeight(WeightEntry(date: date, kilograms: weight)) { dismiss() }
+                }.disabled(NumberDraftField.value(weight, range: 20...400) == nil) }
+            }
+        }.onAppear { if weight.isEmpty { weight = diary.profile.weight.formatted(.number.grouping(.never)) } }
     }
 }

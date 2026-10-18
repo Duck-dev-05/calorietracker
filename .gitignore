@@ -4,3 +4,6 @@ DerivedData/
 *.xcworkspace/
 
 dist/
+
+.build/
+.swiftpm/

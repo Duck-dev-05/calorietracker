@@ -7,11 +7,18 @@ struct OnboardingView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                ProgressView(value: Double(step + 1), total: 3).padding(.horizontal)
+                HStack(spacing: 8) {
+                    ForEach(0..<3, id: \.self) { index in Capsule().fill(index <= step ? NourishStyle.accent : Color.secondary.opacity(0.15)).frame(height: 5) }
+                }.padding(.horizontal, 24).padding(.top, 12)
+                Text("STEP \(step + 1) OF 3").font(.caption2.bold()).tracking(2).foregroundStyle(.secondary)
                 if step == 0 {
                     Spacer()
-                    Image(systemName: "leaf.circle.fill").font(.system(size: 90)).foregroundStyle(nourishGreen)
-                    Text("A little more balance.").font(.largeTitle.bold()).multilineTextAlignment(.center)
+                    ZStack {
+                        Circle().fill(NourishStyle.accent.opacity(0.08)).frame(width: 210, height: 210)
+                        Circle().fill(NourishStyle.accent.opacity(0.08)).frame(width: 154, height: 154)
+                        Image(systemName: "leaf.fill").font(.system(size: 64, weight: .light)).foregroundStyle(NourishStyle.accent)
+                    }.accessibilityHidden(true)
+                    Text("Feel good.\nOne day at a time.").font(.system(.largeTitle, design: .rounded).weight(.bold)).multilineTextAlignment(.center)
                     Text("Know what you eat, explore meal ideas and keep your daily activity in view.").foregroundStyle(.secondary).multilineTextAlignment(.center).padding()
                     Spacer()
                 } else if step == 1 {
@@ -42,9 +49,9 @@ struct OnboardingView: View {
                 HStack {
                     if step > 0 { Button("Back") { step -= 1 }.padding() }
                     Button(step == 2 ? "Start my day" : "Continue") { if step == 2 { complete = true } else { step += 1 } }
-                        .buttonStyle(.borderedProminent).frame(maxWidth: .infinity)
+                        .buttonStyle(PrimaryAction())
                 }.padding()
-            }.navigationTitle(step == 0 ? "Welcome to Nourish" : "Your setup").navigationBarTitleDisplayMode(.inline)
+            }.background(NourishStyle.canvas.ignoresSafeArea()).navigationTitle(step == 0 ? "Nourish" : "Your setup").navigationBarTitleDisplayMode(.inline)
         }.navigationViewStyle(.stack)
     }
 }
@@ -56,24 +63,29 @@ struct MealsView: View {
         Meal.ideas.filter { (diary.profile.preferences != "Vegetarian" || $0.vegetarian) && (!onlyFits || $0.calories <= diary.remaining) && (search.isEmpty || ($0.name + $0.detail).localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
-        List {
-            Section { NavigationLink(destination: MealPlanScreen()) { Label("My meal planner", systemImage: "calendar") }; Toggle("Fits today's remaining calories", isOn: $onlyFits) }
-            Section("Explore meals") {
-                ForEach(meals) { meal in
-                    NavigationLink(destination: MealDetailScreen(meal: meal)) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(meal.name).font(.headline)
-                            Text(meal.detail).font(.subheadline).foregroundStyle(.secondary)
-                            Text("≈ \(meal.calories) kcal · \(meal.vegetarian ? "Vegetarian" : "Balanced")").font(.caption).foregroundStyle(nourishGreen)
-                        }.padding(.vertical, 8)
+        PageCanvas {
+            PageIntro(eyebrow: "Eat well", title: "Find your next favorite.", detail: "Simple ideas to bring a little variety to your plate.")
+            NavigationLink(destination: MealPlanScreen()) {
+                Surface { RouteRow(title: "Your meal planner", subtitle: "Make a little space for the week ahead", icon: "calendar") }
+            }.buttonStyle(.plain)
+            Surface { Toggle("Fits my remaining calories", isOn: $onlyFits).font(.subheadline); Text("\(max(0, diary.remaining)) kcal remaining today · \(diary.profile.preferences)").font(.caption).foregroundStyle(.secondary) }
+            SectionHeading(title: "Made for your day", subtitle: "Illustrative servings · approximate calories")
+            ForEach(meals) { meal in
+                NavigationLink(destination: MealDetailScreen(meal: meal)) {
+                    Surface {
+                        MealArtwork(meal: meal)
+                        HStack(alignment: .top) { Text(meal.name).font(.system(.title3, design: .rounded).weight(.bold)).foregroundStyle(.primary); Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(NourishStyle.accent).accessibilityHidden(true) }
+                        Text(meal.detail).font(.subheadline).foregroundStyle(.secondary)
+                        HStack { Pill(text: "≈ \(meal.calories) kcal"); if meal.vegetarian { Pill(text: "Vegetarian") } }
                     }
-                }
-                if meals.isEmpty { EmptyCard(title: "No matching meals", message: "Try another search or turn off the calorie filter.", icon: "magnifyingglass") }
+                }.buttonStyle(.plain)
             }
-            Section { Text("Illustrative servings with approximate calories. Check ingredients for your allergies and dietary needs.").font(.footnote) }
-        }.navigationTitle("Meal inspiration").searchable(text: $search, prompt: "Search meals or ingredients")
+            if meals.isEmpty { Surface { EmptyCard(title: "Let's try another idea", message: "Change your search or switch off the calorie filter.", icon: "magnifyingglass") } }
+            Text("Check ingredients for your dietary needs. Portions and preparation affect calories.").font(.caption).foregroundStyle(.secondary)
+        }.navigationTitle("Meals").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search meals or ingredients")
     }
 }
+
 struct MealDetailScreen: View {
     @EnvironmentObject var diary: Diary
     let meal: Meal
@@ -84,8 +96,8 @@ struct MealDetailScreen: View {
     var body: some View {
         Form {
             Section {
-                Image(systemName: "fork.knife.circle.fill").font(.system(size: 64)).foregroundStyle(nourishGreen).frame(maxWidth: .infinity).padding()
-                Text(meal.name).font(.title2.bold())
+                MealArtwork(meal: meal).listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                Text(meal.name).font(.system(.title2, design: .rounded).weight(.bold))
                 Text(meal.detail)
                 ValueRow(title: "Estimated energy", value: "\(meal.calories * servings) kcal")
                 Text("These are meal ideas, not measured recipes. Portions and preparation affect calories.").font(.footnote).foregroundStyle(.secondary)
@@ -135,7 +147,8 @@ struct WaterScreen: View {
     var body: some View {
         List {
             Section {
-                Text("\(entries.reduce(0) { $0 + $1.milliliters }) mL").font(.largeTitle.bold()).foregroundStyle(nourishGreen)
+                HStack { IconTile(icon: "drop.fill", color: NourishStyle.blue); Spacer(); Pill(text: "TODAY", color: NourishStyle.blue) }
+                Text("\(entries.reduce(0) { $0 + $1.milliliters }) mL").font(.system(size: 44, weight: .semibold, design: .rounded)).foregroundStyle(NourishStyle.accent)
                 Text("Water logged today").foregroundStyle(.secondary)
                 HStack { ForEach([150, 250, 500], id: \.self) { amount in Button("+\(amount) mL") { diary.water.append(WaterEntry(milliliters: amount)) }.buttonStyle(.bordered) } }
             }
@@ -153,6 +166,16 @@ struct ProgressScreen: View {
     private func total(_ date: Date) -> Int { diary.foods.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }.reduce(0) { $0 + $1.calories } }
     var body: some View {
         List {
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("ONE DAY AT A TIME").font(.caption2.bold()).tracking(2).foregroundStyle(NourishStyle.accent)
+                    Text("Look how far you've come.").font(.system(.title2, design: .rounded).weight(.bold))
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("\(days.filter { total($0) > 0 }.count)").font(.system(size: 44, weight: .semibold, design: .rounded))
+                        Text("of 7 days with food logged").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                }.padding(.vertical, 12)
+            }
             Section("Last 7 days · calories logged") {
                 ForEach(days, id: \.self) { date in
                     VStack(alignment: .leading, spacing: 6) {

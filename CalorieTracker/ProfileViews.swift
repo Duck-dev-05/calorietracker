@@ -3,30 +3,57 @@ import SwiftUI
 struct ProfileScreen: View {
     @EnvironmentObject var diary: Diary
     var body: some View {
-        Form {
-            Section {
+        PageCanvas {
+            PageIntro(eyebrow: "Your space", title: "Wellness, your way.", detail: "A plan that belongs to you.")
+            Surface {
                 HStack(spacing: 16) {
-                    Image(systemName: "person.crop.circle.fill").font(.system(size: 52)).foregroundStyle(nourishGreen)
-                    VStack(alignment: .leading, spacing: 6) { Text(diary.profile.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Your profile").font(.title2.bold()); Text(diary.profile.goal).foregroundStyle(.secondary) }
-                }.padding(.vertical, 8)
+                    ZStack { Circle().fill(NourishStyle.accent.opacity(0.12)).frame(width: 64, height: 64); Image(systemName: "person.fill").font(.title).foregroundStyle(NourishStyle.accent) }
+                    VStack(alignment: .leading, spacing: 6) { Text(diary.profile.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Your profile").font(.system(.title2, design: .rounded).weight(.bold)); Pill(text: diary.profile.goal) }
+                }
+                Divider()
+                HStack {
+                    measurement("Height", String(format: "%.0f cm", diary.profile.height))
+                    Spacer(); measurement("Weight", String(format: "%.1f kg", diary.profile.weight))
+                    Spacer(); measurement("Target", "\(Int(diary.profile.target)) kcal")
+                }
             }
-            Section("Personal details") {
-                TextField("Your name", text: Binding(get: { diary.profile.name ?? "" }, set: { diary.profile.name = $0 }))
+            SectionHeading(title: "Make it personal")
+            Surface {
+                NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Your name and measurements", icon: "person.crop.circle") }.buttonStyle(.plain)
+                Divider()
+                NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal, icon: "target") }.buttonStyle(.plain)
+                Divider()
+                NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences, icon: "fork.knife") }.buttonStyle(.plain)
+            }
+            SectionHeading(title: "Connected to your day")
+            Surface {
+                NavigationLink(destination: HealthScreen()) { RouteRow(title: "Apple Health", subtitle: "Activity, height and weight", icon: "heart.fill", color: .pink) }.buttonStyle(.plain)
+                Divider()
+                NavigationLink(destination: SettingsScreen()) { RouteRow(title: "Settings", subtitle: "Appearance and app preferences", icon: "slider.horizontal.3") }.buttonStyle(.plain)
+                Divider()
+                NavigationLink(destination: HelpScreen()) { RouteRow(title: "A little guidance", subtitle: "Help and about Nourish", icon: "questionmark.circle") }.buttonStyle(.plain)
+            }
+            Label("Your journal stays on your device", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+        }.navigationTitle("You").navigationBarTitleDisplayMode(.inline)
+    }
+    private func measurement(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.system(.subheadline, design: .rounded).weight(.semibold)).fixedSize(horizontal: false, vertical: true) }
+    }
+}
+struct PersonalDetailsScreen: View {
+    @EnvironmentObject var diary: Diary
+    var body: some View {
+        Form {
+            Section("About you") { TextField("Your name", text: Binding(get: { diary.profile.name ?? "" }, set: { diary.profile.name = $0 })) }
+            Section("Measurements") {
                 NumericRow(title: "Height (cm)", value: $diary.profile.height, range: 80...250)
                 NumericRow(title: "Weight (kg)", value: $diary.profile.weight, range: 20...400)
             }
-            Section("Your plan") {
-                NavigationLink(destination: GoalsScreen()) { Label("Goals & daily target", systemImage: "target") }
-                NavigationLink(destination: PreferencesScreen()) { Label("Food preferences", systemImage: "fork.knife") }
-                NavigationLink(destination: HealthScreen()) { Label("Apple Health & activity", systemImage: "heart.fill") }
-            }
-            Section {
-                NavigationLink(destination: SettingsScreen()) { Label("Settings", systemImage: "gearshape") }
-                NavigationLink(destination: HelpScreen()) { Label("Help & about", systemImage: "questionmark.circle") }
-            }
-        }.navigationTitle("You")
+            Section { Text("You can also import available measurements from Apple Health.").font(.footnote); NavigationLink("Open Apple Health connection", destination: HealthScreen()) }
+        }.navigationTitle("Personal details").navigationBarTitleDisplayMode(.inline)
     }
 }
+
 struct GoalsScreen: View {
     @EnvironmentObject var diary: Diary
     var body: some View {
@@ -60,12 +87,15 @@ struct HealthScreen: View {
     var body: some View {
         Form {
             Section {
-                Label("A fuller view of your day", systemImage: "heart.fill").font(.headline).foregroundStyle(nourishGreen)
+                HStack { IconTile(icon: "heart.fill", color: .pink); Spacer(); Pill(text: "OPTIONAL") }
+                Text("A fuller view of your day.").font(.system(.title2, design: .rounded).weight(.bold))
                 Text("Connect the activity and measurements available in Apple Health, including records from compatible iPhone and Apple Watch apps.")
             }
             Section("Connection") {
                 Text(health.status).font(.subheadline)
-                Button(health.busy ? "Refreshing…" : "Connect / refresh Health") { enabled = true; Task { await health.connect() } }.disabled(health.busy)
+                Button { enabled = true; Task { await health.connect() } } label: {
+                    HStack { if health.busy { ProgressView() }; Label(health.busy ? "Refreshing…" : "Connect / refresh Health", systemImage: "arrow.triangle.2.circlepath") }.frame(maxWidth: .infinity).padding(.vertical, 8)
+                }.disabled(health.busy)
                 Toggle("Refresh when opening Nourish", isOn: $enabled)
                 Text("Turning off refresh stops automatic reads. To revoke access, use Apple Health → your profile → Apps → Nourish.").font(.footnote).foregroundStyle(.secondary)
             }

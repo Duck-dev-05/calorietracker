@@ -213,7 +213,7 @@ struct GoalsScreen: View {
     }
     private var targetPanel: some View {
         Surface {
-            HStack { Label("DAILY ENERGY", systemImage: "flame").font(.caption.bold()).tracking(1); Spacer(); Pill(text: "MANUAL") }
+            HStack { Label("DAILY ENERGY", systemImage: "flame").font(.caption.bold()); Spacer(); Pill(text: "MANUAL") }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 TextField("2000", text: $target).keyboardType(.decimalPad).focused($targetFocused).font(.system(.largeTitle, design: .rounded).weight(.bold)).accessibilityLabel("Daily calorie target")
                 Text("kcal / day").font(.subheadline).foregroundStyle(.secondary)

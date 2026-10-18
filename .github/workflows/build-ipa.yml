@@ -1,0 +1,22 @@
+name: Build TrollStore IPA
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: brew install xcodegen ldid
+      - name: Compile and package iOS 15 IPA
+        run: bash scripts/build-trollstore.sh
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nourish-TrollStore-iOS15
+          path: dist/Nourish.ipa
+          if-no-files-found: error
+          retention-days: 14

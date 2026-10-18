@@ -94,7 +94,7 @@ final class DiaryTests: XCTestCase {
             XCTAssertTrue(diary.upsertFood(entry))
             let export = try diary.backupData()
             XCTAssertTrue(diary.upsertFood(Food(name: "Snack", calories: 100)))
-            XCTAssertTrue(diary.replace(with: DiarySnapshot.decode(export)))
+            XCTAssertTrue(diary.replace(with: try DiarySnapshot.decode(export)))
             XCTAssertEqual(diary.foods.map(\.id), [entry.id])
             let archive = try XCTUnwrap(diary.lastArchiveURL)
             XCTAssertEqual(try DiarySnapshot.decode(Data(contentsOf: archive)).foods.count, 2)

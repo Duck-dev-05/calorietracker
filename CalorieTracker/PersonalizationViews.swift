@@ -37,6 +37,7 @@ struct PersonalDetailsScreen: View {
     @State private var weight = ""
     @State private var activity = "Not specified"
     @State private var loggingWeight = false
+    @State private var weightBeforeLogging = 0.0
     @State private var loaded = false
     @FocusState private var textFocused: Bool
     private let activities = ["Not specified", "Mostly seated", "Some daily movement", "Regular exercise", "Very active days"]
@@ -63,7 +64,7 @@ struct PersonalDetailsScreen: View {
                 Divider()
                 NumberDraftField(title: "Current weight (kg)", text: $weight, range: 20...400)
                 DetailNote(icon: "pencil", text: "Edit these at any time. Saving a profile measurement doesn't add a dated weight entry to Progress.")
-                Button { loggingWeight = true } label: { Label("Log a dated weight measurement", systemImage: "plus.circle") }.font(.subheadline.weight(.semibold))
+                Button { weightBeforeLogging = diary.profile.weight; loggingWeight = true } label: { Label("Log a dated weight measurement", systemImage: "plus.circle") }.font(.subheadline.weight(.semibold))
             }
             Surface {
                 SectionHeading(title: "What does your day look like?", subtitle: "Optional context for your profile")
@@ -82,7 +83,9 @@ struct PersonalDetailsScreen: View {
             Button("Save personal details", action: save).buttonStyle(PrimaryAction()).disabled(!valid).opacity(valid ? 1 : 0.5)
             DetailNote(icon: "lock.shield", text: "Your edits stay on this page until saved. Going back leaves the saved profile unchanged.")
         }.navigationTitle("Personal details").navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $loggingWeight) { WeightLogScreen().adaptiveEntrySheet() }
+        .sheet(isPresented: $loggingWeight, onDismiss: {
+            if diary.profile.weight != weightBeforeLogging { weight = diary.profile.weight.formatted(.number.grouping(.never)) }
+        }) { WeightLogScreen().adaptiveEntrySheet() }
         .toolbar { ToolbarItemGroup(placement: .keyboard) { if textFocused { Spacer(); Button("Done") { textFocused = false } } } }
         .onAppear { if !loaded { let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height.formatted(.number.grouping(.never)); weight = p.weight.formatted(.number.grouping(.never)); activity = activities.contains(p.activityLevel ?? "") ? p.activityLevel! : "Not specified"; loaded = true } }
     }

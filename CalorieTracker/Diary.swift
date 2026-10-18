@@ -11,7 +11,10 @@ struct DiarySnapshot: Codable {
     var savedMeals: [Meal]? = []
     static var empty: DiarySnapshot { DiarySnapshot(profile: Profile(), foods: []) }
     static let maxFileSize = 10 * 1024 * 1024
-    var entryCount: Int { foods.count + (water?.count ?? 0) + (weights?.count ?? 0) + (planned?.count ?? 0) + (savedMeals?.count ?? 0) }
+    var entryCount: Int {
+        let counts: [Int] = [foods.count, water?.count ?? 0, weights?.count ?? 0, planned?.count ?? 0, savedMeals?.count ?? 0]
+        return counts.reduce(0, +)
+    }
     func validated() throws -> DiarySnapshot {
         guard schemaVersion == nil || schemaVersion == 1 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
         for (value, range) in [(profile.height, 80.0...250.0), (profile.weight, 20.0...400.0), (profile.target, 500.0...10000.0)] {

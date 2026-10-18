@@ -266,7 +266,7 @@ struct PreferencesScreen: View {
                 ChoiceTile(title: "Vegetarian", icon: "leaf", selected: style == "Vegetarian") { style = "Vegetarian" }
             }
             Button("Clear food style") { style = "" }.font(.caption).disabled(style.isEmpty)
-            Text(style.isEmpty ? "No food style selected. All of your saved meals are shown." : style == "Vegetarian" ? "Meat-free ideas, with dairy included. This filter is not vegan." : "The whole collection: plants, dairy, chicken and fish.").font(.subheadline).foregroundStyle(.secondary)
+            Text(style.isEmpty ? "No food style selected. All of your saved meals are shown." : style == "Vegetarian" ? "Meat-free ideas, with dairy included. This filter is not vegan." : "All of your saved meals, without a vegetarian filter.").font(.subheadline).foregroundStyle(.secondary)
             ingredientPanel
             HStack(alignment: .firstTextBaseline) { SectionHeading(title: "Your menu preview", subtitle: "Based on the choices above"); Spacer(); Pill(text: "\(matches.count) ideas") }
             if matches.isEmpty { Surface { EmptyCard(title: diary.savedMeals.isEmpty ? "Your meal collection is empty" : "No meals match", message: diary.savedMeals.isEmpty ? "Add your own meals in the Meals tab to preview them here." : "Remove an ingredient filter or try another food style.", icon: "fork.knife") } }

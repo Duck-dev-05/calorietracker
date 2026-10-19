@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 struct DiarySnapshot: Codable {
-    var schemaVersion: Int? = 1
+    var schemaVersion: Int? = 2
     var profile: Profile
     var foods: [Food]
     var water: [WaterEntry]? = []
@@ -16,7 +16,7 @@ struct DiarySnapshot: Codable {
         return counts.reduce(0, +)
     }
     func validated() throws -> DiarySnapshot {
-        guard schemaVersion == nil || schemaVersion == 1 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
+        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
         for (value, range) in [(profile.height, 80.0...250.0), (profile.weight, 20.0...400.0), (profile.target, 500.0...10000.0)] {
             if let value, !value.isFinite || !range.contains(value) { throw DiaryFailure.invalid("A measurement or calorie target is outside the supported input range.") }
         }
@@ -40,8 +40,11 @@ struct DiarySnapshot: Codable {
               (planned ?? []).allSatisfy({ validName($0.name) && (1...10000).contains($0.calories) && categories.contains($0.category) && validDate($0.date) }) else { throw DiaryFailure.invalid("The file contains an invalid entry, amount, date or meal category.") }
         guard Set(foods.map(\.id)).count == foods.count, Set((water ?? []).map(\.id)).count == (water ?? []).count, Set((weights ?? []).map(\.id)).count == (weights ?? []).count, Set((planned ?? []).map(\.id)).count == (planned ?? []).count else { throw DiaryFailure.invalid("The backup contains duplicate entry identifiers.") }
         guard (savedMeals ?? []).allSatisfy({ validName($0.name) && !$0.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.detail.count <= 2000 && (1...10000).contains($0.calories) }), Set((savedMeals ?? []).map(\.id)).count == (savedMeals ?? []).count else { throw DiaryFailure.invalid("A saved meal contains invalid details, calories or duplicate identifiers.") }
+        for food in foods { try food.nutrition?.validate(calories: food.calories) }
+        for meal in savedMeals ?? [] { try meal.nutrition?.validate(calories: meal.calories) }
+        for plan in planned ?? [] { try plan.nutrition?.validate(calories: plan.calories) }
         var result = self
-        result.schemaVersion = 1; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
+        result.schemaVersion = 2; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
         return result
     }
     static func decode(_ data: Data) throws -> DiarySnapshot {
@@ -67,6 +70,9 @@ enum DiaryFailure: LocalizedError {
     @Published var storageError: String?
     @Published private(set) var storageBlocked = false
     @Published private(set) var lastArchiveURL: URL?
+    private var diskBaseline: Data?
+    private var migrationPending = false
+    private var externalConflict = false
     private let url: URL
     private let writer: (Data, URL) throws -> Void
     // Computed bindings preserve current UI while all writes use a validated candidate snapshot.
@@ -97,9 +103,13 @@ enum DiaryFailure: LocalizedError {
     }
     func retryLoad() {
         do {
-            if FileManager.default.fileExists(atPath: url.path) { snapshot = try DiarySnapshot.decode(Data(contentsOf: url)) }
-            else { snapshot = .empty }
-            storageBlocked = false; storageError = nil
+            if FileManager.default.fileExists(atPath: url.path) {
+                let data = try readDisk()
+                let loaded = try DiarySnapshot.decode(data)
+                let version = try JSONDecoder().decode(DiarySnapshot.self, from: data).schemaVersion
+                snapshot = loaded; diskBaseline = data; migrationPending = version != 2
+            } else { snapshot = .empty; diskBaseline = nil; migrationPending = false }
+            storageBlocked = false; externalConflict = false; storageError = nil
         } catch { storageBlocked = true; storageError = "Your diary could not be opened. The original file is preserved. \(error.localizedDescription)" }
     }
     @discardableResult func transaction(_ change: (inout DiarySnapshot) throws -> Void) -> Bool {
@@ -108,7 +118,11 @@ enum DiaryFailure: LocalizedError {
             var candidate = snapshot
             try change(&candidate)
             candidate = try candidate.validated()
-            try writer(candidate.encoded(), url)
+            let data = try candidate.encoded()
+            try verifyDiskBaseline()
+            if migrationPending { try archiveOriginal() }
+            try writer(data, url)
+            diskBaseline = data; migrationPending = false
             snapshot = candidate; storageError = nil
             return true
         } catch { storageError = "Changes were not saved. \(error.localizedDescription)"; return false }
@@ -127,7 +141,7 @@ enum DiaryFailure: LocalizedError {
         guard Calendar.current.startOfDay(for: meal.date) <= Calendar.current.startOfDay(for: now) else { storageError = "Future meals cannot be marked as eaten."; return false }
         return transaction {
             let date = Calendar.current.isDate(meal.date, inSameDayAs: now) ? now : Calendar.current.startOfDay(for: meal.date)
-            $0.foods.append(Food(name: meal.name, calories: meal.calories, date: date, category: meal.category))
+            $0.foods.append(Food(name: meal.name, calories: meal.calories, date: date, category: meal.category, nutrition: meal.nutrition))
             $0.planned?.removeAll { $0.id == id }
         }
     }
@@ -192,6 +206,28 @@ enum DiaryFailure: LocalizedError {
         plan.id = UUID(); plan.date = date
         return upsertPlan(plan)
     }
+    /// Optimistic concurrency guard: never overwrite bytes changed since load/save.
+    private func readDisk() throws -> Data {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard ((attributes[.size] as? NSNumber)?.intValue ?? Int.max) <= DiarySnapshot.maxFileSize else { throw DiaryFailure.invalid("The diary exceeds the 10 MB limit. Preserve/export the original file before recovery.") }
+        return try Data(contentsOf: url)
+    }
+    private func verifyDiskBaseline() throws {
+        let current = FileManager.default.fileExists(atPath: url.path) ? try readDisk() : nil
+        guard current == diskBaseline else {
+            storageBlocked = true; externalConflict = true
+            throw DiaryFailure.invalid("The diary file changed outside this session. Your changes were not written. Reopen/reload the diary before retrying.")
+        }
+    }
+    @discardableResult func logMeal(_ id: UUID, servings: Double, category: String, plannedDate: Date? = nil) -> Bool {
+        do {
+            guard let meal = savedMeals.first(where: { $0.id == id }) else { throw DiaryFailure.invalid("This saved meal no longer exists.") }
+            let nutrition = try meal.portion(servings)
+            let calories = try nutrition.roundedCalories()
+            if let date = plannedDate { return upsertPlan(PlannedMeal(date: date, name: meal.name, calories: calories, category: category, nutrition: nutrition)) }
+            return upsertFood(Food(name: meal.name, calories: calories, date: now, category: category, nutrition: nutrition))
+        } catch { storageError = error.localizedDescription; return false }
+    }
     func backupData() throws -> Data { guard !storageBlocked else { throw DiaryFailure.invalid("Export the original file from recovery instead.") }; return try snapshot.encoded() }
     func originalData() throws -> Data { try Data(contentsOf: url) }
     private func archiveOriginal() throws {
@@ -202,12 +238,17 @@ enum DiaryFailure: LocalizedError {
     }
     @discardableResult func replace(with replacement: DiarySnapshot) -> Bool {
         do {
+            guard !externalConflict else { throw DiaryFailure.invalid("Reload the changed diary before replacing it. Your newer file has been preserved.") }
             let candidate = try replacement.validated()
             let data = try candidate.encoded()
             // If preserving the old bytes fails, do not replace the active diary.
+            // Recovery may deliberately replace a damaged file. Normal restore must
+            // still protect external changes since the last successful load.
+            if !storageBlocked { try verifyDiskBaseline() }
             try archiveOriginal()
             try writer(data, url)
-            snapshot = candidate; storageBlocked = false; storageError = nil
+            diskBaseline = data; migrationPending = false
+            snapshot = candidate; storageBlocked = false; externalConflict = false; storageError = nil
             return true
         } catch { storageError = "Diary was not replaced. \(error.localizedDescription)"; return false }
     }

@@ -117,7 +117,9 @@ struct MealDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var editing = false
     private var current: Meal { diary.savedMeals.first { $0.id == meal.id } ?? meal }
-    @State private var servings = 1
+    @State private var servings = 1.0
+    private var portion: NutritionSnapshot? { try? current.portion(servings) }
+    private var portionCalories: Int? { guard let portion else { return nil }; return try? portion.roundedCalories() }
     @State private var category = "Lunch"
     @State private var date = Date()
     @State private var feedback: String?
@@ -127,23 +129,24 @@ struct MealDetailScreen: View {
                 MealArtwork(meal: current).listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
                 Text(current.name).font(.system(.title2, design: .rounded).weight(.bold))
                 Text(current.detail)
-                ValueRow(title: "Your serving energy", value: "\(current.calories * servings) kcal")
+                ValueRow(title: "Your serving energy", value: portionCalories.map { "\($0) kcal" } ?? "Invalid portion")
+                NutritionSnapshotRows(snapshot: portion)
                 Text("Calories and ingredients were entered by you. Confirm the information for the portion you eat.").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Your portion") {
-                Stepper("\(servings) serving(s)", value: $servings, in: 1...max(1, min(10, 10000 / current.calories)))
+                Stepper("\(servings.formatted()) serving(s)", value: $servings, in: 0.25...Double(max(1, min(10, 10000 / current.calories))), step: 0.25)
                 Picker("Meal", selection: $category) { ForEach(mealCategories, id: \.self) { Text($0) } }
-                Button("Log as eaten now") { if diary.upsertFood(Food(name: "\(current.name) (\(servings) serving(s))", calories: current.calories * servings, category: category)) { feedback = "Added to today's diary." } }
+                Button("Log as eaten now") { if diary.logMeal(current.id, servings: servings, category: category) { feedback = "Added to today's diary." } }.disabled(portionCalories == nil)
             }
             Section("Plan ahead") {
                 DatePicker("Planned day", selection: $date, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: .date)
-                Button("Add to meal plan") { if diary.transaction({ $0.planned = ($0.planned ?? []) + [PlannedMeal(date: date, name: "\(current.name) (\(servings) serving(s))", calories: current.calories * servings, category: category)] }) { feedback = "Added to your meal plan." } }
+                Button("Add to meal plan") { if diary.logMeal(current.id, servings: servings, category: category, plannedDate: date) { feedback = "Added to your meal plan." } }.disabled(portionCalories == nil)
             }
         }.navigationTitle("Meal details").navigationBarTitleDisplayMode(.inline)
         .toolbar { Button("Edit") { editing = true } }
         .sheet(isPresented: $editing, onDismiss: {
             if !diary.savedMeals.contains(where: { $0.id == meal.id }) { dismiss() }
-            servings = min(servings, max(1, min(10, 10000 / current.calories)))
+            servings = min(servings, Double(max(1, min(10, 10000 / current.calories))))
         }) { MealEditorScreen(existing: current).adaptiveEntrySheet() }
         .alert("Saved", isPresented: Binding(get: { feedback != nil }, set: { if !$0 { feedback = nil } })) { Button("OK") { feedback = nil } } message: { Text(feedback ?? "") }
     }
@@ -260,6 +263,7 @@ struct MealEditorScreen: View {
     @EnvironmentObject var diary: Diary
     @Environment(\.dismiss) private var dismiss
     var existing: Meal? = nil
+    @State private var macros = MacroDraft()
     @State private var name = ""
     @State private var ingredients = ""
     @State private var calories = ""
@@ -268,7 +272,7 @@ struct MealEditorScreen: View {
     @State private var deleting = false
     @FocusState private var focused: Bool
     private var validCalories: Int? { guard let value = Int(calories), (1...10000).contains(value) else { return nil }; return value }
-    private var valid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 500 && !ingredients.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ingredients.count <= 2000 && validCalories != nil }
+    private var valid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 500 && !ingredients.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ingredients.count <= 2000 && validCalories != nil && macros.valid }
     var body: some View {
         AdaptiveNavigation {
             Form {
@@ -278,7 +282,8 @@ struct MealEditorScreen: View {
                     TextField("Calories per serving (kcal)", text: $calories).keyboardType(.numberPad).focused($focused)
                     Toggle("This meal is vegetarian", isOn: $vegetarian)
                 }
-                Section { Text("Enter calories for your actual serving using its nutrition label or another source you trust. Ingredient descriptions are used by your preference filters. No nutrition values are generated by the app.").font(.footnote) }
+                MacroEntryFields(draft: $macros)
+                Section { Text("Changing calories clears old macros; re-enter them for the new serving. Enter calories for your actual serving using its nutrition label or another source you trust. Ingredient descriptions are used by your preference filters. No nutrition values are generated by the app.").font(.footnote) }
                 if let existing { Section { Button("Delete saved meal", role: .destructive) { deleting = true }.accessibilityLabel("Delete \(existing.name)") } }
                 if let error = diary.storageError { Text(error).foregroundStyle(.red) }
             }.navigationTitle(existing == nil ? "Create meal" : "Edit meal").navigationBarTitleDisplayMode(.inline)
@@ -291,11 +296,13 @@ struct MealEditorScreen: View {
                 Button("Delete", role: .destructive) { if let existing, diary.transaction({ $0.savedMeals?.removeAll { $0.id == existing.id } }) { dismiss() } }
                 Button("Cancel", role: .cancel) { }
             } message: { Text("Your logged food and planned meals are kept. Only this reusable meal is removed.") }
-        }.onAppear { if !loaded { name = existing?.name ?? ""; ingredients = existing?.detail ?? ""; calories = existing.map { String($0.calories) } ?? ""; vegetarian = existing?.vegetarian ?? false; loaded = true } }
+        }.onAppear { if !loaded { macros = MacroDraft(existing?.nutrition); name = existing?.name ?? ""; ingredients = existing?.detail ?? ""; calories = existing.map { String($0.calories) } ?? ""; vegetarian = existing?.vegetarian ?? false; loaded = true } }.onChange(of: calories) { value in
+            if let existing, value != String(existing.calories) { macros = MacroDraft() }
+        }
     }
     private func save() {
-        guard valid, let calories = validCalories else { return }
-        var meal = Meal(name: name.trimmingCharacters(in: .whitespacesAndNewlines), detail: ingredients.trimmingCharacters(in: .whitespacesAndNewlines), calories: calories, vegetarian: vegetarian)
+        guard valid, let calories = validCalories, let nutrition = macros.snapshot(calories: calories, preserving: existing?.nutrition) else { return }
+        var meal = Meal(name: name.trimmingCharacters(in: .whitespacesAndNewlines), detail: ingredients.trimmingCharacters(in: .whitespacesAndNewlines), calories: calories, vegetarian: vegetarian, nutrition: nutrition)
         if let existing { meal.id = existing.id }
         if diary.transaction({ saved in
             var meals = saved.savedMeals ?? []

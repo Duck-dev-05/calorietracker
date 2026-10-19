@@ -74,3 +74,12 @@ A welcome screen offers Log in, Create account and Continue without an account. 
 To enable real accounts, select/configure an identity provider or backend, implement AccountProvider, align validation with its policy, securely persist actual tokens using Keychain, and define account switching/data-isolation, verification, reset, sign-out and deletion behavior. Do not embed provider secrets in the IPA. Existing local diaries must not silently become shared or uploaded when authentication is connected. The current account scaffolding intentionally provides no cloud sync or real-session persistence.
 
 Device checks: guest continuation reaches existing diary/setup, Profile and Settings links work, secure-field visibility/autofill and keyboard behavior are usable, malformed email/mismatched password errors are readable, and service-unavailable submissions leave the diary unchanged.
+
+
+### Version 0.7.0 — nutrition and data protection
+
+- Schema 2 preserves old calorie entries and archives the original before the first migrated save.
+- Stale diary instances refuse to overwrite changed/deleted files; reload through recovery before retrying.
+- Optional protein/carbohydrate/fat entry, explicit unknown values and fractional saved-meal servings.
+- Validated portion calculations and nutrition snapshots preserved through planning, logging, export and restore.
+- No automatic target/activity adjustment or invented nutrition. Manual values still depend on the label/source you enter.

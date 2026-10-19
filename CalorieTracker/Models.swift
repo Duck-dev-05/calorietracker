@@ -22,6 +22,7 @@ struct Food: Identifiable, Codable {
     var calories: Int
     var date = Date()
     var category: String?
+    var nutrition: NutritionSnapshot? = nil
 }
 struct Meal: Identifiable, Codable {
     var id = UUID()
@@ -29,6 +30,7 @@ struct Meal: Identifiable, Codable {
     let detail: String
     let calories: Int
     let vegetarian: Bool
+    var nutrition: NutritionSnapshot? = nil
     func matches(preference: String, excluding ingredients: [String] = []) -> Bool {
         guard preference != "Vegetarian" || vegetarian else { return false }
         let searchable = name + " " + detail
@@ -46,4 +48,4 @@ struct Meal: Identifiable, Codable {
 }
 struct WaterEntry: Identifiable, Codable { var id = UUID(); var date = Date(); var milliliters: Int }
 struct WeightEntry: Identifiable, Codable { var id = UUID(); var date = Date(); var kilograms: Double; var source: String? }
-struct PlannedMeal: Identifiable, Codable { var id = UUID(); var date: Date; var name: String; var calories: Int; var category: String }
+struct PlannedMeal: Identifiable, Codable { var id = UUID(); var date: Date; var name: String; var calories: Int; var category: String; var nutrition: NutritionSnapshot? = nil }

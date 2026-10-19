@@ -146,6 +146,8 @@ struct AddFoodView: View {
     @Environment(\.dismiss) private var dismiss
     var initialDate = Date()
     var existing: Food? = nil
+    @State private var macros = MacroDraft()
+    @State private var loaded = false
     @State private var name = ""
     @State private var calories = ""
     @State private var category = "Breakfast"
@@ -161,23 +163,27 @@ struct AddFoodView: View {
                     Picker("Meal", selection: $category) { ForEach(mealCategories, id: \.self) { Text($0) } }
                     DatePicker("When", selection: $date, in: ...Date())
                 }
-                Section { Text("Enter calories for the portion you ate. Use its nutrition label or a trusted food reference.") }
+                MacroEntryFields(draft: $macros)
+                Section { Text("Changing calories clears previously recorded macros; enter them again for the new portion. Editing nutrition replaces the reference with this manual portion. Enter calories for the portion you ate. Use its nutrition label or a trusted food reference.") }
                 if let error = diary.storageError { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }.navigationTitle(existing == nil ? "Log food" : "Edit food").navigationBarTitleDisplayMode(.inline).toolbar {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { fieldFocused = false } }
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        guard let value = validCalories else { return }
-                        var food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: value, date: date, category: category)
+                        guard let value = validCalories, let nutrition = macros.snapshot(calories: value, preserving: existing?.nutrition) else { return }
+                        var food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: value, date: date, category: category, nutrition: nutrition)
                         if let existing { food.id = existing.id }
                         if diary.upsertFood(food) { dismiss() }
-                    }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validCalories == nil)
+                    }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validCalories == nil || !macros.valid)
                 }
             }
         }.onAppear {
+            guard !loaded else { return }; loaded = true; macros = MacroDraft(existing?.nutrition)
             name = existing?.name ?? ""; calories = existing.map { String($0.calories) } ?? ""
             category = existing?.category ?? "Breakfast"; date = existing?.date ?? initialDate
+        }.onChange(of: calories) { value in
+            if let existing, value != String(existing.calories) { macros = MacroDraft() }
         }
     }
 }
@@ -193,6 +199,7 @@ struct FoodDetailScreen: View {
             Section("Logged serving") {
                 ValueRow(title: "Food", value: current.name)
                 ValueRow(title: "Energy", value: "\(current.calories) kcal")
+                NutritionSnapshotRows(snapshot: current.nutrition)
                 ValueRow(title: "Meal", value: current.category ?? "Snacks")
                 Text(current.date.formatted(date: .abbreviated, time: .shortened))
             }

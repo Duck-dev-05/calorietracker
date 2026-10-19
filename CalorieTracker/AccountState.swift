@@ -12,11 +12,6 @@ enum AccountValidation {
         return !name.isEmpty && name.count <= 100 && self.email(email) && (15...128).contains(password.count) && password == confirmation
     }
 }
-enum AccountRole: String, CaseIterable, Identifiable {
-    case localOwner, member, viewer, admin, unknown
-    var id: String { rawValue }
-    var title: String { switch self { case .localOwner: return "Local owner"; case .member: return "Member"; case .viewer: return "Viewer"; case .admin: return "Admin"; case .unknown: return "No assigned role" } }
-}
 enum AppPermission: String, CaseIterable, Identifiable {
     case readJournal, editJournal, exportJournal, restoreJournal, readHealth
     var id: String { rawValue }
@@ -26,27 +21,20 @@ struct AccountSession {
     let id: String
     let email: String
     let name: String?
-    // Only a validated identity-provider response may supply account claims.
-    var role: AccountRole = .unknown
     var expiresAt: Date? = nil
 }
 struct AccessPolicy {
-    private static let ownerPermissions: Set<AppPermission> = [.readJournal, .editJournal, .exportJournal, .restoreJournal, .readHealth]
-    static func allows(_ permission: AppPermission, session: AccountSession?, ownerAccountID: String?, now: Date = Date()) -> Bool {
-        guard let session else { return ownerAccountID == nil && ownerPermissions.contains(permission) }
-        guard !session.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let expiry = session.expiresAt, expiry.timeIntervalSinceReferenceDate.isFinite, expiry > now,
-              ownerAccountID == session.id else { return false }
-        switch session.role {
-        case .member, .admin: return ownerPermissions.contains(permission)
-        case .viewer: return permission == .readJournal
-        case .localOwner, .unknown: return false
-        }
+    static func isAuthenticated(_ session: AccountSession?, now: Date = Date()) -> Bool {
+        guard let session, !session.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              session.id.count <= 300, AccountValidation.email(session.email),
+              let expiry = session.expiresAt, expiry.timeIntervalSinceReferenceDate.isFinite,
+              expiry > now else { return false }
+        return true
     }
 }
 struct AccessDenied: LocalizedError {
     let permission: AppPermission
-    var errorDescription: String? { "Access denied: \(permission.title.lowercased()). Your role, session or journal ownership does not allow this action." }
+    var errorDescription: String? { "Access denied: \(permission.title.lowercased()). Sign in to access your journal." }
 }
 @MainActor protocol AccountProvider {
     var configured: Bool { get }
@@ -55,7 +43,7 @@ struct AccessDenied: LocalizedError {
     func resetPassword(email: String) async throws
 }
 struct AccountUnavailable: LocalizedError {
-    var errorDescription: String? { "An account service has not been connected to this build. No account was created, no email was sent and no password was stored. Continue with the local journal for now." }
+    var errorDescription: String? { "An account service has not been connected to this build. No account was created, no email was sent and no password was stored. Sign-in is required to unlock the app." }
 }
 @MainActor final class UnconfiguredAccountProvider: AccountProvider {
     let configured = false
@@ -70,18 +58,31 @@ struct AccountUnavailable: LocalizedError {
     let provider: AccountProvider
     init(provider: AccountProvider) { self.provider = provider }
     var configured: Bool { provider.configured }
-    var role: AccountRole { session?.role ?? .localOwner }
-    func allows(_ permission: AppPermission, ownerAccountID: String?) -> Bool { AccessPolicy.allows(permission, session: session, ownerAccountID: ownerAccountID) }
-    func require(_ permission: AppPermission, ownerAccountID: String?) throws {
-        guard allows(permission, ownerAccountID: ownerAccountID) else { throw AccessDenied(permission: permission) }
+    var isAuthenticated: Bool { AccessPolicy.isAuthenticated(session) }
+    func allows(_ permission: AppPermission) -> Bool { isAuthenticated }
+    func require(_ permission: AppPermission) throws {
+        guard isAuthenticated else { throw AccessDenied(permission: permission) }
     }
     /// Clears local claims only; a connected provider must revoke remote sessions separately.
-    func endLocalSession() { requestGeneration += 1; session = nil }
+    func endLocalSession() { requestGeneration += 1; expiryTask?.cancel(); expiryTask = nil; session = nil }
     private func accepted(_ candidate: AccountSession) throws -> AccountSession {
-        guard !candidate.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, candidate.id.count <= 300,
-              AccountValidation.email(candidate.email), let expiry = candidate.expiresAt,
-              expiry.timeIntervalSinceReferenceDate.isFinite, expiry > Date(), [.member, .viewer, .admin].contains(candidate.role) else { throw DiaryFailure.invalid("The account service returned an invalid, expired or unassigned access role.") }
+        guard AccessPolicy.isAuthenticated(candidate) else { throw DiaryFailure.invalid("The account service returned an invalid or expired session.") }
         return candidate
+    }
+    private var expiryTask: Task<Void, Never>?
+    private func install(_ candidate: AccountSession) throws {
+        let accepted = try accepted(candidate)
+        expiryTask?.cancel()
+        session = accepted
+        expiryTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, let expiry = self.session?.expiresAt else { return }
+                let remaining = expiry.timeIntervalSinceNow
+                if remaining <= 0 { self.endLocalSession(); return }
+                do { try await Task.sleep(nanoseconds: UInt64(min(remaining, 60) * 1_000_000_000)) }
+                catch { return }
+            }
+        }
     }
     func signIn(email: String, password: String) async throws {
         guard !busy else { throw DiaryFailure.invalid("An account request is already in progress.") }
@@ -90,7 +91,7 @@ struct AccountUnavailable: LocalizedError {
         let generation = requestGeneration
         let candidate = try await provider.signIn(email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password)
         guard generation == requestGeneration else { throw DiaryFailure.invalid("This account request was cancelled by ending the session.") }
-        session = try accepted(candidate)
+        try install(candidate)
     }
     func register(name: String, email: String, password: String, confirmation: String) async throws {
         guard !busy else { throw DiaryFailure.invalid("An account request is already in progress.") }
@@ -99,7 +100,7 @@ struct AccountUnavailable: LocalizedError {
         let generation = requestGeneration
         let candidate = try await provider.register(name: name.trimmingCharacters(in: .whitespacesAndNewlines), email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password)
         guard generation == requestGeneration else { throw DiaryFailure.invalid("This account request was cancelled by ending the session.") }
-        session = try accepted(candidate)
+        try install(candidate)
     }
     func resetPassword(email: String) async throws {
         guard !busy else { throw DiaryFailure.invalid("An account request is already in progress.") }

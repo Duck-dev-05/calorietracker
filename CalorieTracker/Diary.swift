@@ -71,8 +71,8 @@ enum DiaryFailure: LocalizedError {
     private var accessSubscription: AnyCancellable?
     var snapshot: DiarySnapshot { can(.readJournal) ? storedSnapshot : .empty }
     var canReadJournal: Bool { can(.readJournal) }
-    func can(_ permission: AppPermission) -> Bool { account.allows(permission, ownerAccountID: storedSnapshot.ownerAccountID) }
-    private func require(_ permission: AppPermission) throws { try account.require(permission, ownerAccountID: storedSnapshot.ownerAccountID) }
+    func can(_ permission: AppPermission) -> Bool { account.allows(permission) }
+    private func require(_ permission: AppPermission) throws { try account.require(permission) }
     @Published private(set) var now = Date()
     private var timeZoneID = TimeZone.current.identifier
     @Published var storageError: String?
@@ -137,7 +137,7 @@ enum DiaryFailure: LocalizedError {
             try require(.editJournal)
             var candidate = storedSnapshot
             try change(&candidate)
-            guard candidate.ownerAccountID == storedSnapshot.ownerAccountID else { throw DiaryFailure.invalid("Journal ownership cannot be changed by an edit or role claim.") }
+            guard candidate.ownerAccountID == storedSnapshot.ownerAccountID else { throw DiaryFailure.invalid("Journal ownership metadata cannot be changed by an edit.") }
             candidate = try candidate.validated()
             let data = try candidate.encoded()
             try verifyDiskBaseline()
@@ -250,34 +250,14 @@ enum DiaryFailure: LocalizedError {
         } catch { storageError = error.localizedDescription; return false }
     }
     func backupData() throws -> Data { try require(.exportJournal); guard !storageBlocked else { throw DiaryFailure.invalid("Export the original file from recovery instead.") }; return try snapshot.encoded() }
-    private func authorizeFileExport(_ data: Data) throws {
-        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let owner = object["ownerAccountID"], !(owner is NSNull) {
-                guard let owner = owner as? String else { throw AccessDenied(permission: .exportJournal) }
-                try account.require(.exportJournal, ownerAccountID: owner)
-            } else { try account.require(.exportJournal, ownerAccountID: nil) }
-        } else if account.session != nil { throw AccessDenied(permission: .exportJournal) }
-        // Damaged non-JSON local files remain recoverable by this device's local owner.
-    }
     func originalData() throws -> Data {
         try require(.exportJournal)
-        let data = try Data(contentsOf: url)
-        try authorizeFileExport(data)
-        return data
+        return try Data(contentsOf: url)
     }
     func archivedData() throws -> Data {
         try require(.exportJournal)
         guard let url = lastArchiveURL else { throw DiaryFailure.invalid("No recovery file is available.") }
-        let data = try Data(contentsOf: url)
-        // Archives may belong to a different owner; never assume current ownership.
-        try authorizeFileExport(data)
-        return data
-    }
-    private func archiveOriginal() throws {
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-        let archive = url.deletingLastPathComponent().appendingPathComponent("Recovery", isDirectory: true).appendingPathComponent("diary-before-replace-\(UUID().uuidString).json")
-        try Self.writeFile(Data(contentsOf: url), archive)
-        lastArchiveURL = archive
+        return try Data(contentsOf: url)
     }
     @discardableResult func resetJournal() -> Bool {
         var empty = DiarySnapshot.empty

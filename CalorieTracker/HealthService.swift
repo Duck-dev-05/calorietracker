@@ -46,7 +46,7 @@ import HealthKit
     private let monitor: HealthMonitor
     private var subscription: AnyCancellable?
     private let authorized: () -> Bool
-    init(authorized: @escaping () -> Bool = { true }) {
+    init(authorized: @escaping () -> Bool) {
         self.authorized = authorized
         monitor = HealthMonitor(provider: HealthKitProvider(authorized: authorized))
         subscription = monitor.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
@@ -56,7 +56,7 @@ import HealthKit
     var height: Double? { value(.height) }
     var weight: Double? { value(.weight) }
     var busy: Bool { monitor.busy }
-    var status: String { authorized() ? monitor.status : "Your role does not allow Apple Health access." }
+    var status: String { authorized() ? monitor.status : "Sign in to access Apple Health." }
     func value(_ metric: HealthMetric) -> Double? { authorized() ? monitor.value(metric) : nil }
     func result(_ metric: HealthMetric) -> MetricResult { authorized() ? monitor.result(metric) : MetricResult() }
     func expireOldResults() { monitor.expireOldResults() }

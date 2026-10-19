@@ -10,17 +10,14 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     @AppStorage("appearance") private var appearance = "System"
-    @AppStorage("accountChoiceMade") private var accountChoiceMade = false
     @AppStorage("onboardingComplete") private var onboarded = false
     @AppStorage("healthEnabled") private var healthEnabled = false
     var body: some View {
         Group {
-            if !diary.canReadJournal {
-                AdaptiveNavigation { JournalAccessDeniedScreen() }
+            if !account.isAuthenticated {
+                AdaptiveNavigation { AccountWelcomeScreen() }
             } else if diary.storageBlocked {
                 AdaptiveNavigation { StorageRecoveryScreen() }
-            } else if !accountChoiceMade && account.session == nil {
-                AdaptiveNavigation { AccountWelcomeScreen() }
             } else if onboarded {
                 TabView {
                     AdaptiveNavigation { DashboardView() }.tabItem { Label("Today", systemImage: "house.fill") }
@@ -44,7 +41,7 @@ struct ContentView: View {
     private func updateDay(refresh: Bool) {
         let changed = diary.updateClock()
         health.expireOldResults()
-        if (refresh || changed) && healthEnabled && !health.busy { Task { await health.refresh() } }
+        if account.isAuthenticated && (refresh || changed) && healthEnabled && !health.busy { Task { await health.refresh() } }
     }
 }
 struct EmptyCard: View {

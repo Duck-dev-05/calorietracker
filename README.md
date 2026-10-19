@@ -67,13 +67,13 @@ Additional tests cover partial Health failures, permission/refresh separation, u
 
 ## Login and registration pages (0.6.0)
 
-A welcome screen offers Log in, Create account and Continue without an account. Login includes email/password fields, visibility control and a password-reset link. Registration includes name, email, a matching 15–128-character password and confirmation. The UI provides loading/error states and password autofill hints. Profile → Account and Settings → Login & registration reopen these pages.
+The welcome screen offers Log in and Create account. Login includes email/password fields, visibility control and a password-reset link. Registration includes name, email, a matching 15–128-character password and confirmation. The UI provides loading/error states and password autofill hints. Profile → Account and Settings → Login & registration reopen these pages.
 
-**Authentication is not connected.** No backend, identity-provider project, endpoint or client configuration was supplied. The included UnconfiguredAccountProvider always returns a clear unavailable error: it does not create accounts, sign in, send mail, retain passwords or fabricate a session. Passwords live only in form state and are cleared when leaving the screen. Continue without an account keeps the existing local diary and setup state intact.
+**Authentication is not connected.** No backend, identity-provider project, endpoint or client configuration was supplied. The included UnconfiguredAccountProvider always returns a clear unavailable error: it does not create accounts, sign in, send mail, retain passwords or fabricate a session. Passwords live only in form state and are cleared when leaving the screen. Version 0.8.1 requires sign-in; guest continuation has been removed.
 
 To enable real accounts, select/configure an identity provider or backend, implement AccountProvider, align validation with its policy, securely persist actual tokens using Keychain, and define account switching/data-isolation, verification, reset, sign-out and deletion behavior. Do not embed provider secrets in the IPA. Existing local diaries must not silently become shared or uploaded when authentication is connected. The current account scaffolding intentionally provides no cloud sync or real-session persistence.
 
-Device checks: guest continuation reaches existing diary/setup, Profile and Settings links work, secure-field visibility/autofill and keyboard behavior are usable, malformed email/mismatched password errors are readable, and service-unavailable submissions leave the diary unchanged.
+Device checks after provider configuration: signed-out access stays locked, valid sign-in reaches diary/setup, Profile and Settings links work, secure-field visibility/autofill and keyboard behavior are usable, malformed email/mismatched password errors are readable, and service-unavailable submissions leave the diary unchanged.
 
 
 ### Version 0.7.0 — nutrition and data protection
@@ -85,8 +85,10 @@ Device checks: guest continuation reaches existing diary/setup, Profile and Sett
 - No automatic target/activity adjustment or invented nutrition. Manual values still depend on the label/source you enter.
 
 
-### Version 0.8.0 — access roles
+### Version 0.8.1 — sign-in required
 
-Settings -> Access & permissions shows Local owner / Member / Viewer / Admin capabilities. Local journals remain usable without login. Account sessions require an explicit provider role and expiry; read-only, export/restore, edit, Health and journal-owner checks are enforced in application services. Admin cannot access other owners' journals. Backups cannot grant roles or silently adopt account data.
+The role model introduced in 0.8.0 has been removed. Access has two states: signed out (locked) and signed in with a valid session (unlocked). Welcome/login/register/reset-password remain available while locked. There is no Continue without an account button. Settings -> Account & security provides Sign out; logout/expiry hides application data without deleting the diary.
 
-The authentication provider is still unconfigured. Role assignment, server-side authorization, encrypted account isolation and account/guest adoption are not connected. Client-side RBAC does not secure a future API by itself.
+**The production identity provider remains unconfigured. This build stays at the authentication pages until a real provider is connected.** Form validation does not create a session. No mock sign-in or device-stored plaintext password is introduced. Any valid connected-provider session unlocks the same existing on-device journal; per-account storage separation is not implemented.
+
+The authentication gate supersedes earlier optional-login/guest instructions in this README. Tests use isolated provider fixtures to exercise login/logout and continue checking existing nutrition/migration behavior.

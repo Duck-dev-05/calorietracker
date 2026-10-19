@@ -30,12 +30,13 @@ final class DiaryTests: XCTestCase {
         XCTAssertThrowsError(try DiarySnapshot.decode(Data(repeating: 0, count: DiarySnapshot.maxFileSize + 1)))
     }
     func testFailedFoodWriteDoesNotPublishOrChangeDisk() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             let original = try DiarySnapshot.empty.encoded()
             try original.write(to: url)
-            let diary = Diary(url: url, writer: { _, _ in throw DiaryFailure.invalid("Disk full") })
+            let diary = Diary(url: url, account: account, writer: { _, _ in throw DiaryFailure.invalid("Disk full") })
             XCTAssertFalse(diary.upsertFood(Food(name: "Rice", calories: 200)))
             XCTAssertTrue(diary.foods.isEmpty)
             XCTAssertEqual(try Data(contentsOf: url), original)
@@ -43,12 +44,13 @@ final class DiaryTests: XCTestCase {
         }
     }
     func testPlanTransferIsAtomicIdempotentAndPersists() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             var fail = false
             var writes = 0
-            let diary = Diary(url: url, writer: { data, target in
+            let diary = Diary(url: url, account: account, writer: { data, target in
                 if fail { throw DiaryFailure.invalid("Simulated failure") }
                 writes += 1; try Diary.writeFile(data, target)
             })
@@ -63,18 +65,19 @@ final class DiaryTests: XCTestCase {
             XCTAssertEqual(writes, baseline + 1)
             XCTAssertTrue(diary.consumePlan(meal.id))
             XCTAssertEqual(writes, baseline + 1)
-            let reloaded = Diary(url: url)
+            let reloaded = Diary(url: url, account: account)
             XCTAssertTrue(reloaded.planned.isEmpty); XCTAssertEqual(reloaded.foods.count, 1)
             XCTAssertEqual(reloaded.consumed, 500)
         }
     }
     func testCorruptStorageIsBlockedAndResetPreservesOriginal() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             let corrupt = Data("original damaged file".utf8)
             try corrupt.write(to: url)
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             XCTAssertTrue(diary.storageBlocked)
             XCTAssertFalse(diary.upsertFood(Food(name: "Rice", calories: 100)))
             XCTAssertEqual(try diary.originalData(), corrupt)
@@ -82,14 +85,15 @@ final class DiaryTests: XCTestCase {
             XCTAssertFalse(diary.storageBlocked)
             let archive = try XCTUnwrap(diary.lastArchiveURL)
             XCTAssertEqual(try Data(contentsOf: archive), corrupt)
-            XCTAssertEqual(Diary(url: url).lastArchiveURL?.resolvingSymlinksInPath(), archive.resolvingSymlinksInPath())
+            XCTAssertEqual(Diary(url: url, account: account).lastArchiveURL?.resolvingSymlinksInPath(), archive.resolvingSymlinksInPath())
         }
     }
     func testRestoreRoundTripPreservesRecordsAndArchive() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             let entry = Food(name: "Breakfast", calories: 350, category: "Breakfast")
             XCTAssertTrue(diary.upsertFood(entry))
             let export = try diary.backupData()
@@ -101,12 +105,13 @@ final class DiaryTests: XCTestCase {
         }
     }
     func testFailedRestoreLeavesExistingDiaryAndPreservesArchive() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             let original = try DiarySnapshot.empty.encoded()
             try original.write(to: url)
-            let diary = Diary(url: url, writer: { _, _ in throw DiaryFailure.invalid("Disk full") })
+            let diary = Diary(url: url, account: account, writer: { _, _ in throw DiaryFailure.invalid("Disk full") })
             var replacement = DiarySnapshot.empty; replacement.foods = [Food(name: "Rice", calories: 200)]
             XCTAssertFalse(diary.replace(with: replacement))
             XCTAssertTrue(diary.foods.isEmpty)
@@ -115,10 +120,11 @@ final class DiaryTests: XCTestCase {
         }
     }
     func testFuturePlanCannotBeConsumedAndBackdatedWeightDoesNotReplaceLatest() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             let tomorrow = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: 1, to: Date()))
             let future = PlannedMeal(date: tomorrow, name: "Tomorrow", calories: 400, category: "Dinner")
             XCTAssertTrue(diary.transaction { $0.planned = [future] })
@@ -163,20 +169,21 @@ final class DiaryTests: XCTestCase {
         XCTAssertTrue((snapshot.planned ?? []).isEmpty); XCTAssertTrue((snapshot.weights ?? []).isEmpty); XCTAssertTrue((snapshot.water ?? []).isEmpty)
     }
     func testUserMealsPersistWithoutSeedingOtherMeals() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL()
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             XCTAssertNil(diary.remaining)
             let meal = Meal(name: "User entry", detail: "User ingredients and serving", calories: 321, vegetarian: true)
             XCTAssertTrue(diary.transaction { $0.savedMeals = [meal] })
-            let reloaded = Diary(url: url)
+            let reloaded = Diary(url: url, account: account)
             XCTAssertEqual(reloaded.savedMeals.count, 1); XCTAssertEqual(reloaded.savedMeals.first?.id, meal.id)
             let restored = try DiarySnapshot.decode(reloaded.backupData())
             XCTAssertEqual(restored.savedMeals?.first?.calories, 321)
             XCTAssertTrue(diary.transaction { $0.savedMeals = [] })
-            XCTAssertTrue(Diary(url: url).savedMeals.isEmpty)
-            XCTAssertNil(Diary(url: url).profile.target)
+            XCTAssertTrue(Diary(url: url, account: account).savedMeals.isEmpty)
+            XCTAssertNil(Diary(url: url, account: account).profile.target)
         }
     }
     func testExpandedProfileRejectsInvalidOptionalFields() throws {

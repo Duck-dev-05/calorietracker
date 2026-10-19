@@ -58,10 +58,11 @@ final class CriticalTests: XCTestCase {
         XCTAssertFalse(result.isFresh(for: .steps, now: date, calendar: calendar))
     }
     func testWeightEditDeleteAndNewerProfileImport() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("CriticalTests-\(UUID().uuidString)/diary.json")
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             let now = diary.now
             var earlier = WeightEntry(date: now.addingTimeInterval(-7200), kilograms: 71, source: "Manual")
             let latest = WeightEntry(date: now.addingTimeInterval(-3600), kilograms: 70, source: "Manual")
@@ -73,22 +74,24 @@ final class CriticalTests: XCTestCase {
             XCTAssertTrue(diary.importWeight(69, measuredAt: now, source: "Profile review"))
             XCTAssertFalse(diary.importWeight(80, measuredAt: now.addingTimeInterval(-1800), source: "Older Health sample"))
             XCTAssertTrue(diary.deleteWeight(earlier.id)); XCTAssertEqual(diary.profile.weight, 69)
-            XCTAssertEqual(Diary(url: url).profile.weightSource, "Profile review")
+            XCTAssertEqual(Diary(url: url, account: account).profile.weightSource, "Profile review")
         }
     }
-    func testDeletingOnlyCurrentWeightLeavesUnset() async {
+    func testDeletingOnlyCurrentWeightLeavesUnset() async throws {
+        let account = try await signedInTestAccount()
         await MainActor.run {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("CriticalTests-\(UUID().uuidString)/diary.json")
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url); let entry = WeightEntry(kilograms: 70)
+            let diary = Diary(url: url, account: account); let entry = WeightEntry(kilograms: 70)
             XCTAssertTrue(diary.logWeight(entry)); XCTAssertTrue(diary.deleteWeight(entry.id)); XCTAssertNil(diary.profile.weight)
         }
     }
-    func testWaterAndPlanEditCopyPreserveIdentities() async {
+    func testWaterAndPlanEditCopyPreserveIdentities() async throws {
+        let account = try await signedInTestAccount()
         await MainActor.run {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("CriticalTests-\(UUID().uuidString)/diary.json")
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             var water = WaterEntry(date: diary.now, milliliters: 125)
             XCTAssertTrue(diary.upsertWater(water)); water.milliliters = 250
             XCTAssertTrue(diary.upsertWater(water)); XCTAssertEqual(diary.water.count, 1); XCTAssertEqual(diary.water.first?.milliliters, 250)
@@ -100,11 +103,12 @@ final class CriticalTests: XCTestCase {
             XCTAssertTrue(diary.deleteWater(water.id)); XCTAssertTrue(diary.water.isEmpty)
         }
     }
-    func testSharedClockRollsFoodTotalsAndRejectsFutureEntries() async {
+    func testSharedClockRollsFoodTotalsAndRejectsFutureEntries() async throws {
+        let account = try await signedInTestAccount()
         await MainActor.run {
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("CriticalTests-\(UUID().uuidString)/diary.json")
             defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url); let now = diary.now
+            let diary = Diary(url: url, account: account); let now = diary.now
             XCTAssertTrue(diary.upsertFood(Food(name: "Logged entry", calories: 100, date: now)))
             XCTAssertFalse(diary.upsertFood(Food(name: "Future entry", calories: 100, date: now.addingTimeInterval(86400))))
             XCTAssertEqual(diary.consumed, 100)

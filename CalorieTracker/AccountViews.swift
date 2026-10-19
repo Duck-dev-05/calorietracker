@@ -15,7 +15,7 @@ private struct AccountAvailability: View {
     @EnvironmentObject var account: AccountStore
     var body: some View {
         if !account.configured {
-            Label("Account service not connected. These forms cannot sign in or create an account yet. Your local journal is available without an account.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
+            Label("Account service not connected. These forms cannot sign in or create an account yet. Sign-in is required to unlock the journal.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
         }
     }
 }
@@ -42,18 +42,16 @@ private struct AccountEmailField: View {
 }
 struct AccountWelcomeScreen: View {
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("accountChoiceMade") private var chosen = false
     var body: some View {
         PageCanvas {
             AccountHeader(title: "Your everyday,\na little healthier.", subtitle: "A personal space for your meals, movement and progress.")
             Surface {
                 IconTile(icon: "person.crop.circle")
-                SectionHeading(title: "Welcome to Nourish", subtitle: "Choose how you'd like to get started")
+                SectionHeading(title: "Welcome to Nourish", subtitle: "Sign in or register to unlock your journal")
                 NavigationLink(destination: LoginScreen()) { Text("Log in").frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(Color(red: 0.16, green: 0.37, blue: 0.25), in: RoundedRectangle(cornerRadius: 18)) }.buttonStyle(.plain)
                 NavigationLink(destination: RegisterScreen()) { Text("Create an account").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14) }.buttonStyle(.bordered)
                 AccountAvailability()
             }
-            Button("Continue without an account") { chosen = true; dismiss() }.font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
             Label("Your existing local diary stays on this device.", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
             NavigationLink("Privacy & storage", destination: PrivacyScreen()).font(.footnote)
         }.navigationTitle("Welcome").navigationBarTitleDisplayMode(.inline)
@@ -62,7 +60,6 @@ struct AccountWelcomeScreen: View {
 struct LoginScreen: View {
     @EnvironmentObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("accountChoiceMade") private var chosen = false
     @State private var email = ""
     @State private var password = ""
     @State private var error: String?
@@ -83,14 +80,13 @@ struct LoginScreen: View {
             }
             AccountAvailability()
             HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)) }.font(.subheadline).frame(maxWidth: .infinity)
-            Button("Continue with my local journal") { password = ""; chosen = true; dismiss() }.font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 10)
         }.navigationTitle("Log in").navigationBarTitleDisplayMode(.inline).onDisappear { password = "" }
     }
     private func signIn() {
         attempted = true; error = nil
         guard valid else { error = "Check your email address and password."; return }
         Task {
-            do { try await account.signIn(email: email, password: password); password = ""; chosen = true; dismiss() }
+            do { try await account.signIn(email: email, password: password); password = ""; dismiss() }
             catch { self.error = error.localizedDescription }
         }
     }
@@ -98,7 +94,6 @@ struct LoginScreen: View {
 struct RegisterScreen: View {
     @EnvironmentObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("accountChoiceMade") private var chosen = false
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -107,7 +102,7 @@ struct RegisterScreen: View {
     private var valid: Bool { AccountValidation.registration(name: name, email: email, password: password, confirmation: confirmation) }
     var body: some View {
         PageCanvas {
-            AccountHeader(title: "Make space for you.", subtitle: "Create an account when the account service is connected. You can use Nourish locally now.")
+            AccountHeader(title: "Make space for you.", subtitle: "Create an account to securely access your journal once the account service is connected.")
             Surface {
                 SectionHeading(title: "Your account details")
                 TextField("Your name", text: $name).textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
@@ -123,14 +118,13 @@ struct RegisterScreen: View {
             }
             AccountAvailability()
             NavigationLink("Review privacy & storage", destination: PrivacyScreen()).font(.footnote)
-            Button("Continue without an account") { clearPasswords(); chosen = true; dismiss() }.font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 10)
         }.navigationTitle("Register").navigationBarTitleDisplayMode(.inline).onDisappear { clearPasswords() }
     }
     private func clearPasswords() { password = ""; confirmation = "" }
     private func register() {
         guard valid else { return }; error = nil
         Task {
-            do { try await account.register(name: name, email: email, password: password, confirmation: confirmation); clearPasswords(); chosen = true; dismiss() }
+            do { try await account.register(name: name, email: email, password: password, confirmation: confirmation); clearPasswords(); dismiss() }
             catch { self.error = error.localizedDescription }
         }
     }

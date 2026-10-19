@@ -12,7 +12,7 @@ Core principles:
 
 - Start with an empty journal. Do not ship mock foods, invented measurements, fake Health readings or simulated conversations as user data.
 - Missing calories, macros, measurements and targets remain unknown; they are not automatically zero.
-- Keep manual logging and local use available without an account, Health access, internet or AI.
+- Require a valid sign-in session to unlock application data and tools. Health access and AI remain optional. No guest bypass.
 - Preserve existing records, identifiers and timestamps through schema changes.
 - Require review before applying estimated targets, importing replacement data or committing suggested food entries.
 
@@ -151,7 +151,7 @@ For macro composition charts, explain whether values represent grams or energy c
 
 Provide loading, error, offline, empty and incomplete-data states. Verify small screens, long names, Dynamic Type, VoiceOver, light/dark modes, keyboard behavior, Reduce Motion/Transparency and unsaved drafts.
 
-**Completion flow:** profile or manual setup -> reviewed target -> food selection -> portion -> save -> updated diary/macros -> recommendation -> reviewed log. It must work without mock data or mandatory login.
+**Completion flow:** profile or manual setup -> reviewed target -> food selection -> portion -> save -> updated diary/macros -> recommendation -> reviewed log. It must work without mock data; app access requires a valid sign-in session.
 
 ## 7. Phase 4 — Food API, optional AI and release
 
@@ -198,7 +198,7 @@ Existing account pages use an unconfigured provider and cannot authenticate user
 - Store session secrets in Keychain; implement refresh, expiry, sign-out and account deletion.
 - Define per-account data isolation, explicit guest-diary adoption and backup ownership.
 - Specify cloud sync separately, including conflicts and deletion propagation; login alone does not provide sync.
-- Update privacy disclosures and add integration tests without making accounts mandatory for local use.
+- Update privacy disclosures and add integration tests with mandatory sign-in and no guest bypass.
 
 ### 7.4 Release validation
 
@@ -264,7 +264,7 @@ Accessible text and simple macro progress indicators are High priority. A decora
 | M4 | Workout history page and query support | Explicit workout product need | Real workout records and sources displayed without double counting; budget correctness itself remains P0 |
 | M5 | USDA search/detail, nutrient mapping, caching and offline handling | H1–H2 and C6 | Attributed API foods create valid snapshots; errors do not produce fake results |
 | M6 | AI settings/consent, secured adapter and saved-meal suggestion pilot | H5–H6 and C6 | Opt-in structured responses validated; deterministic fallback remains available |
-| M7 | Live registration/login/reset, secure sessions and guest-data adoption | Identity provider selected and C6 | Real integration tests, sign-out/deletion and ownership rules pass; local journal stays optional-account |
+| M7 | Live registration/login/reset, secure sessions and guest-data adoption | Identity provider selected and C6 | Real integration tests, sign-out/deletion and ownership rules pass; journal stays locked while signed out |
 | M8 | Recipe ingredient/yield aggregation | Stable serving model and ingredient sources | Recipe portions have traceable calculated nutrition before recommendation eligibility |
 
 If measured storage behavior risks lost/out-of-order writes, promote the relevant M3 correctness fix to P0. Cosmetic responsiveness work stays P2. AI and authentication are optional integrations, not prerequisites for local tracking.
@@ -296,7 +296,7 @@ App icon assets and basic readable layouts are release requirements under C5; ad
 | 8 | M6 and/or M7 with C6, only when services are selected | Medium / Critical gate | Optional AI or real accounts with privacy/security validation |
 | 9 | L1–L6 after their prerequisites | Low | Convenience and visual improvements |
 
-**Next implementation task:** C1–C2, followed by H1–H2. Do not start AI, a Core Data rewrite or extra account screens before the nutrition logging foundation is reliable. Keep the current backup, guest access and no-mock-data behavior working at every milestone.
+**Next implementation task:** C1–C2, followed by H1–H2. Do not start AI, a Core Data rewrite or extra account screens before the nutrition logging foundation is reliable. Keep backups and no-mock-data behavior working; enforce sign-in before access at every milestone.
 
 ## 9. References
 
@@ -316,19 +316,17 @@ Added regression coverage for migration/archive/write failures, externally chang
 
 Remaining: complete H1–H2 food-picker flow, daily macro aggregation, target history/activity policy, automatic target calculations and recommendation eligibility. No dynamic Health budget or nutrition inferred by AI has been enabled. Existing atomic storage remains synchronous; the external-change check is optimistic concurrency protection, not a cross-process file lock.
 
-## 11. RBAC implementation — version 0.8.0
+## 11. Authentication gate — version 0.8.1 (supersedes 0.8.0 roles)
 
-Implemented a centralized deny-by-default policy with Local owner, Member, Viewer, Admin and Unknown roles. Account roles/expiry come only through the AccountProvider boundary, not a registration field, profile preference or imported backup. Production authentication is still unconfigured.
+User clarification: access depends only on whether the user is signed in. Local owner, Member, Viewer, Admin and Unknown roles and their screens have been removed.
 
-- Local owner retains normal local-journal behavior without login.
-- Member and Admin can read/edit/export/restore only a journal whose ownerAccountID matches their validated session ID. Admin has no cross-owner bypass and no role-promotion UI.
-- Viewer can read only their account-owned journal; editing, export/restore and Health reads are denied.
-- Unknown, missing, invalid or expired account claims are denied. Ending a local session prevents pending sign-in responses from reinstalling it.
-- Schema 3 adds optional journal ownership; legacy local records remain local with no automatic account adoption. Migration archives remain required. A generic edit/import cannot change ownership; reset preserves it.
-- Diary reads, transactions, backup/recovery export, replacement/reset and production Health entry points use permission checks. Unauthorized snapshots expose no journal contents. Access & permissions shows current capability state.
+- Signed out, invalid session or expired session: show welcome/login/register/reset-password pages. Deny journal reads/edits, Health access and backup/recovery operations.
+- Valid session from AccountProvider: unlock the application, including the existing on-device diary. No role selection or role assignment is involved.
+- Remove Continue without an account and ignore the former accountChoiceMade preference. A preference cannot unlock the application.
+- Signing out invalidates pending sign-in requests, clears the local session and immediately hides journal data without deleting it. Session expiry automatically relocks the app.
+- Settings -> Account & security shows session status and Sign out.
+- Keep legacy schema/ownership metadata readable to preserve existing data, but do not use it to assign roles. This is one local on-device diary behind authentication, not per-user encrypted storage or multi-account data isolation.
 
-This is application-layer RBAC and owner scoping, not a server authorization implementation or encrypted multi-user storage. There is no sharing, role-assignment API, account switching/adoption service or remote token revocation yet. A future backend must verify identity and authorize every request independently. A local device owner can still inspect exported files or modify a client; imported owner metadata is not cryptographic proof of ownership. Roles themselves are never loaded from backups.
+Release limitation: production AccountProvider remains unconfigured. This build intentionally stays locked until a real authentication provider is connected; no fake or local-password login is introduced. Provider session persistence/refresh, Keychain storage and server token revocation must be implemented with that integration. UI and store tests use isolated test-only provider fixtures, never production identities.
 
-Tests cover role/permission/ownership combinations, invalid/expired provider claims, viewer write/export/restore denial, admin cross-owner denial, member ownership-preserving operations, guest backup restrictions and legacy migration. Live identity/Health device validation remains a separate integration gate.
-
-Reference: [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html).
+Verification: signed-out access denied at both navigation and store boundaries; successful provider login/registration unlocks; expired/invalid sessions reject access; logout preserves file bytes and relocks; existing migration/nutrition tests run with explicitly authenticated test fixtures.

@@ -20,7 +20,7 @@ struct ProfileScreen: View {
             }
             Surface {
                 NavigationLink(destination: AccountWelcomeScreen()) {
-                    RouteRow(title: "Account", subtitle: account.session?.email ?? "Local journal · sign in or register", icon: "person.crop.circle.badge.checkmark")
+                    RouteRow(title: "Account", subtitle: account.session?.email ?? "Sign in to unlock your journal", icon: "person.crop.circle.badge.checkmark")
                 }.buttonStyle(.plain)
             }
             SectionHeading(title: "Make it personal")
@@ -84,7 +84,7 @@ struct SettingsScreen: View {
                 ValueRow(title: "Interface", value: InterfaceGeneration.name)
                 Text(InterfaceGeneration.explanation).font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Account") { NavigationLink("Login & registration", destination: AccountWelcomeScreen()); NavigationLink("Access & permissions", destination: AccessPermissionsScreen()) }
+            Section("Account") { NavigationLink("Login & registration", destination: AccountWelcomeScreen()); NavigationLink("Account & security", destination: AccountSecurityScreen()) }
             Section("Your information") {
                 NavigationLink(destination: BackupScreen()) { Label("Backup & restore", systemImage: "externaldrive") }
                 NavigationLink("Privacy & storage", destination: PrivacyScreen())
@@ -107,7 +107,7 @@ struct PrivacyScreen: View {
         List {
             Section("Stored on your device") { Text("Your profile, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
             Section("Apple Health") { Text("Nourish requests read access to height, body mass, steps and active energy only when you choose to connect. Health results are displayed in memory. Measurements are saved to your profile only when you import them.") }
-            Section("Login & registration") { Text("The account screens are available, but no authentication service is configured in this build. Passwords stay only in the current form and are cleared when leaving it. No account is created and no reset email is sent. The local diary works without signing in.") }
+            Section("Login & registration") { Text("The account screens are available, but no authentication service is configured in this build. Passwords stay only in the current form and are cleared when leaving it. No account is created and no reset email is sent. Signing in is required to unlock the diary.") }
             Section("Network & accounts") { Text("No account, advertising, analytics or server connection is used by the app. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
             Section("Backups & recovery") { NavigationLink("Open backup & restore", destination: BackupScreen()); Text("Before replacing or resetting a diary, Nourish preserves the old file on this device. Keep an exported copy before uninstalling the app.") }
             Section("Managing entries") { Text("Swipe left on diary, weight, water or planned meal entries to remove them. Food details also let you edit or delete a food entry. Health access can be revoked in Apple Health.") }

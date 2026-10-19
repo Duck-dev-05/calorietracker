@@ -62,34 +62,37 @@ final class NutritionTests: XCTestCase {
         XCTAssertEqual(try DiarySnapshot.decode(restored.encoded()).foods.first?.id, food.id)
     }
     func testMigrationArchivesExactOriginalBeforeFirstWrite() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             var legacy = DiarySnapshot.empty; legacy.schemaVersion = 1
             legacy.foods = [Food(name: "Legacy", calories: 123)]
             let bytes = try JSONEncoder().encode(legacy); try bytes.write(to: url)
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             XCTAssertEqual(try Data(contentsOf: url), bytes) // Loading never rewrites.
             XCTAssertTrue(diary.upsertFood(Food(name: "New", calories: 222)))
             XCTAssertEqual(try Data(contentsOf: XCTUnwrap(diary.lastArchiveURL)), bytes)
-            XCTAssertEqual(Diary(url: url).foods.count, 2)
+            XCTAssertEqual(Diary(url: url, account: account).foods.count, 2)
         }
     }
     func testArchiveFailurePreventsMigrationWrite() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             var legacy = DiarySnapshot.empty; legacy.schemaVersion = 1
             let bytes = try JSONEncoder().encode(legacy); try bytes.write(to: url)
             // A file at the Recovery directory path makes archiving impossible.
             try Data("blocked".utf8).write(to: url.deletingLastPathComponent().appendingPathComponent("Recovery"))
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             XCTAssertFalse(diary.upsertFood(Food(name: "New", calories: 123)))
             XCTAssertTrue(diary.foods.isEmpty); XCTAssertEqual(try Data(contentsOf: url), bytes)
         }
     }
     func testStaleInstanceCannotOverwriteNewerFileOrBypassWithRestore() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let first = Diary(url: url), stale = Diary(url: url)
+            let first = Diary(url: url, account: account), stale = Diary(url: url, account: account)
             XCTAssertTrue(first.upsertFood(Food(name: "Newest", calories: 123)))
             let newest = try Data(contentsOf: url)
             XCTAssertFalse(stale.upsertFood(Food(name: "Stale", calories: 456)))
@@ -99,13 +102,14 @@ final class NutritionTests: XCTestCase {
             stale.retryLoad()
             XCTAssertEqual(stale.foods.count, 1)
             XCTAssertTrue(stale.upsertFood(Food(name: "After reload", calories: 456)))
-            XCTAssertEqual(Diary(url: url).foods.count, 2)
+            XCTAssertEqual(Diary(url: url, account: account).foods.count, 2)
         }
     }
     func testDeletedFileIsNotSilentlyRecreatedFromStaleState() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             XCTAssertTrue(diary.upsertFood(Food(name: "Original", calories: 100)))
             try FileManager.default.removeItem(at: url)
             XCTAssertFalse(diary.upsertFood(Food(name: "Stale", calories: 200)))
@@ -114,9 +118,10 @@ final class NutritionTests: XCTestCase {
         }
     }
     func testMealChangesAndPlanTransferKeepHistoricalNutrition() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-            let diary = Diary(url: url)
+            let diary = Diary(url: url, account: account)
             let meal = Meal(name: "Test", detail: "Label", calories: 200, vegetarian: true, nutrition: .manual(calories: 200, protein: 10, carbohydrate: 20, fat: 0))
             XCTAssertTrue(diary.transaction { $0.savedMeals = [meal] })
             XCTAssertTrue(diary.logMeal(meal.id, servings: 0.5, category: "Lunch"))
@@ -124,7 +129,7 @@ final class NutritionTests: XCTestCase {
             let plan = try XCTUnwrap(diary.planned.first)
             XCTAssertTrue(diary.transaction { $0.savedMeals = [] })
             XCTAssertTrue(diary.consumePlan(plan.id)); XCTAssertTrue(diary.consumePlan(plan.id))
-            let loaded = Diary(url: url)
+            let loaded = Diary(url: url, account: account)
             XCTAssertEqual(loaded.foods.count, 2)
             XCTAssertEqual(loaded.foods.map(\.calories), [100, 300])
             XCTAssertEqual(try loaded.foods[0].nutrition?.totals().protein, 5)
@@ -133,10 +138,11 @@ final class NutritionTests: XCTestCase {
         }
     }
     func testFailedNutritionSaveDoesNotChangeMemoryOrDisk() async throws {
+        let account = try await signedInTestAccount()
         try await MainActor.run {
             let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
             let original = try DiarySnapshot.empty.encoded(); try original.write(to: url)
-            let diary = Diary(url: url, writer: { _, _ in throw DiaryFailure.invalid("Disk full") })
+            let diary = Diary(url: url, account: account, writer: { _, _ in throw DiaryFailure.invalid("Disk full") })
             XCTAssertFalse(diary.upsertFood(Food(name: "Test", calories: 100, nutrition: .manual(calories: 100, protein: 5))))
             XCTAssertTrue(diary.foods.isEmpty); XCTAssertEqual(try Data(contentsOf: url), original)
         }

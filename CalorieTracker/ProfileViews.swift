@@ -41,40 +41,29 @@ struct ProfileScreen: View {
     }
 }
 struct HealthScreen: View {
-    @EnvironmentObject var diary: Diary
     @EnvironmentObject var health: HealthService
     @AppStorage("healthEnabled") private var enabled = false
     var body: some View {
-        Form {
-            Section {
-                HStack { IconTile(icon: "heart.fill", color: .pink); Spacer(); Pill(text: "OPTIONAL") }
-                Text("A fuller view of your day.").font(.system(.title2, design: .rounded).weight(.bold))
-                Text("Connect the activity and measurements available in Apple Health, including records from compatible iPhone and Apple Watch apps.")
-            }
-            Section("Connection") {
+        PageCanvas {
+            PageIntro(eyebrow: "Optional connection", title: "Your activity, with context.", detail: "Open a metric to review its status, update time and available source information.")
+            Surface {
                 Text(health.status).font(.subheadline)
-                Button { enabled = true; Task { await health.connect() } } label: {
-                    HStack { if health.busy { ProgressView() }; Label(health.busy ? "Refreshing…" : "Connect / refresh Health", systemImage: "arrow.triangle.2.circlepath") }.frame(maxWidth: .infinity).padding(.vertical, 8)
-                }.disabled(health.busy)
+                Button("Connect / manage Health access") { enabled = true; Task { await health.connect() } }.buttonStyle(PrimaryAction()).disabled(health.busy)
+                Button("Refresh available data") { Task { await health.refresh() } }.disabled(health.busy)
+                if health.busy { ProgressView("Refreshing metrics independently…") }
                 Toggle("Refresh when opening Nourish", isOn: $enabled)
-                Text("Turning off refresh stops automatic reads. To revoke access, use Apple Health → your profile → Apps → Nourish.").font(.footnote).foregroundStyle(.secondary)
+                Text("Turning this off stops automatic reads. Revoke access in Apple Health → your profile → Apps → Nourish.").font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Today's activity") {
-                ValueRow(title: "Steps", value: health.steps.map { Int($0).formatted() } ?? "Unavailable")
-                ValueRow(title: "Active energy", value: health.activeEnergy.map { "\(Int($0)) kcal" } ?? "Unavailable")
+            ForEach(HealthMetric.allCases) { metric in
+                NavigationLink(destination: HealthMetricScreen(metric: metric)) {
+                    Surface {
+                        RouteRow(title: metric.title, subtitle: health.result(metric).status.rawValue, icon: metric.icon, color: metric.isDaily ? NourishStyle.accent : .pink)
+                        if let value = health.monitor.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.title2.bold()).foregroundStyle(.primary) }
+                    }
+                }.buttonStyle(.plain)
             }
-            Section("Available measurements") {
-                if let height = health.height {
-                    ValueRow(title: "Height", value: String(format: "%.1f cm", height))
-                    Button("Use this height") { diary.profile.height = height }
-                } else { ValueRow(title: "Height", value: "Unavailable") }
-                if let weight = health.weight {
-                    ValueRow(title: "Weight", value: String(format: "%.1f kg", weight))
-                    Button("Use this weight") { diary.profile.weight = weight }
-                } else { ValueRow(title: "Weight", value: "Unavailable") }
-            }
-            Section("About access") { Text("Permission is optional. Unavailable values can mean missing records or restricted read access. Nourish cannot tell which. Food logs and measurements you enter here are not written to Apple Health.") }
-        }.navigationTitle("Apple Health")
+            Text("An empty result may mean no records or restricted read access. No Health data is written by Nourish.").font(.footnote).foregroundStyle(.secondary)
+        }.navigationTitle("Apple Health").navigationBarTitleDisplayMode(.inline).onAppear { health.expireOldResults() }
     }
 }
 struct SettingsScreen: View {
@@ -95,7 +84,7 @@ struct SettingsScreen: View {
                 Button("Review welcome setup") { replay = true }
             }
             Section("Application") {
-                ValueRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0")
+                ValueRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unavailable")
                 ValueRow(title: "Minimum iOS", value: "15.0")
                 NavigationLink("Help & about", destination: HelpScreen())
             }

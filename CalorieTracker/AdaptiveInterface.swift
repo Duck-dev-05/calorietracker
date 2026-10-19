@@ -70,3 +70,20 @@ enum InterfaceGeneration {
 extension View {
     func adaptiveEntrySheet() -> some View { modifier(AdaptiveEntrySheet()) }
 }
+
+/// Follow the current day only while the user is actually viewing today.
+struct FollowCurrentDay: ViewModifier {
+    @EnvironmentObject var diary: Diary
+    @Binding var selection: Date
+    @State private var previousNow = Date()
+    func body(content: Content) -> some View {
+        content.onAppear {
+            if Calendar.current.isDate(selection, inSameDayAs: previousNow) { selection = diary.now }
+            previousNow = diary.now
+        }.onChange(of: diary.now) { newNow in
+            let following = Calendar.current.isDate(selection, inSameDayAs: previousNow)
+            previousNow = newNow
+            if following { selection = newNow }
+        }
+    }
+}

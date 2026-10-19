@@ -1,200 +1,383 @@
-# Nourish implementation plan
+# Nourish — next implementation plan
 
-Status: proposed work, based on a source review on 18 October 2026. This document does not mark the work below as implemented.
+Reviewed: 18 October 2026. Baseline: version 0.4.0, source commit `65e07e5`. This plan replaces the earlier roadmap; it describes future work, not features already implemented.
 
-## Objective and current evidence
+## Product direction
 
-Deliver a dependable personal iPhone calorie tracker: enter personal measurements, choose a daily target, log actual servings, see a trustworthy daily balance, explore suitable meals, and optionally use Apple Health activity.
+Build on the existing five tabs — Today, Diary, Meals, Progress and You. Add secondary pages only when a task needs a dedicated screen. Keep iOS 15 support, adaptive system presentation, optional Apple Health access, local-first storage and blank first-use data.
 
-- The user confirmed that an IPA installs and runs on their iPhone.
-- The previous adaptive-interface cloud build succeeded: https://github.com/Duck-dev-05/calorietracker/actions/runs/39115610949
-- Installation/launch and compilation do not establish that every feature or OS layout has been tested.
-- The app contains the primary screens, local JSON persistence, read-only HealthKit queries, and an iOS 15 minimum.
-- Calorie targets are manual; meals are five hard-coded illustrative ideas. Personalization, serving-based custom foods, backups, and automated behavior tests are missing.
-- Keep the five main tabs: Today, Diary, Meals, Progress, You. Put new secondary screens under these tabs instead of adding more tabs.
+No seeded food catalog, numeric body defaults, invented Health values or automatic calorie target may return. Missing information stays missing. Synthetic test inputs remain restricted to the test target.
 
-## Priority and delivery order
+## What already exists
 
-| Milestone | Scope | Release gate |
+| Area | Current implementation | Remaining gap |
 | --- | --- | --- |
-| M1 / P0 | Reliable storage, validation, date handling and honest save feedback | A failed write cannot masquerade as success or corrupt a meal-plan transfer |
-| M2 / P1 | Practical daily food logging and a small local food library | A saved food can be logged with an accurate portion without retyping its calories |
-| M3 / P1 | Reliable Health status and optional calorie-target estimation | Users can distinguish estimates, manual targets, unavailable data and stale data |
-| M4 / P1 | Backup, restore, settings and release validation | Data survives app upgrades and a tested export/import round trip |
-| M5 / P2 | Better meal planning, history and progress | History reflects recorded measurements and targets consistently |
-| Later / P3 | Optional remote database, barcode scanning and reminders | Add only after the local daily-use flows are verified |
+| Setup | Draft profile; blank/optional measurements, target and preferences | Better review of missing information; avoid implying setup is required to log food |
+| Today | Calorie ring, missing-target state, activity/water summaries, today's plans | Recent entries, freshness indicators and shared day rollover |
+| Diary | Date selection, meal groups, manual food entry, detail/edit/delete | Saved-meal picker, recent/favorite foods, portion metadata, undo |
+| Meals | Empty user-owned collection; create/edit/delete, search, food-style/exclusion filters | Reference serving quantities/units, fractional portions and favorites |
+| Meal details | Whole-serving logging and planning; user-provided calories | Portion accuracy, historical snapshots and more direct date/meal choice |
+| Planner | Date selection, remove, atomic/idempotent mark-as-eaten | Edit, reschedule, copy, custom plan entry and optional week view |
+| Progress | Seven-day calorie totals and weight list | Longer ranges, missing-day states, actual weight trend and consistent measurements |
+| Water | Today-only quick additions and deletion | Custom amounts, editing and past-day history |
+| Profile | Optional measurements/age/activity, manual target, optional goal weight/note, preference filters | Measurement source/time and historical target records |
+| Health | Read height, weight, steps and active energy; manual/foreground refresh | Independent metric states, timestamps, stale/error handling and permission/refresh separation |
+| Backup/recovery | Versioned JSON export, import preview, confirmed replacement, original-file archives, retry/export/reset | Archive browser, import detail, retention and off-main-thread work |
+| UI/build | Shared design system, docked personal-editor Save, iOS availability wrappers, IPA workflow | Device UI coverage, app icon assets and release details |
+| Tests | 13 domain tests and successful baseline IPA build | UI tests, mocked Health failures, date/measurement/portion coverage |
 
-M1 is the prerequisite for every data-writing feature. M2 and M3 can follow independently. M4 needs the versioned schema from M1. M5 should use the serving and target-history models introduced earlier.
+Baseline build: https://github.com/Duck-dev-05/calorietracker/actions/runs/39121250706
 
-## Page-by-page work
+The user confirmed an earlier IPA launches on their iPhone. Individual workflows and every supported OS layout are not all device-verified.
 
-| Page or flow | Existing behavior / gap | Planned improvement | Priority |
+## Build order
+
+| Release group | Priority | Outcome | Depends on |
 | --- | --- | --- | --- |
-| Welcome / setup | Writes the profile while users are still entering it; default measurements appear as real values | Use a draft, clearly mark defaults, validate on Continue, and commit setup deliberately; keep Health optional | P0 |
-| Today dashboard | Ring and activity cards work from local state; limited recent context | Show recent logged meals, last Health update, actionable empty states and one-tap links to log/edit; keep active energy separate | P1 |
-| Food diary | Date picker and category groups; basic swipe deletion | Previous/next day controls, Today shortcut, per-meal totals and undo delete; preserve the selected date when adding | P1 |
-| Add / edit food | Name and total calories only; form closes after in-memory mutation | Save only after persistence succeeds, show field-level errors, support numeric keyboard dismissal and keep input after errors | P0 |
-| Food details | Displays name, calories, category and timestamp | Add serving, unit, source and optional macros once supplied; provide duplicate/re-log action | P1 |
-| Food library — new | No reusable custom food collection | Search local custom foods, recent foods and favorites; quick-add with portion selection | P1 |
-| Custom food editor — new | No calories-per-serving model | Create/edit a named food with serving amount, unit and calories; optional macros; no network required | P1 |
-| Meal inspiration | Searches five estimated examples | Keep clear estimate labels, expand useful local options with documented servings and sources, retain vegetarian filter; never present budget fit as dietary suitability | P2 |
-| Meal details | Whole-serving stepper; can log or plan | Fractional servings, ingredient quantities where known, optional preparation notes, consistent energy calculation and successful-save confirmation | P2 |
-| Meal planner | Date filtering and mark-as-eaten; transfer uses separate saves | Atomic transfer, duplicate-tap protection and idempotent operation IDs first; then edit portions, move/copy days and create a custom planned meal | P0 / P2 |
-| Progress | Seven-day calories and weight list | 7/30-day ranges, dated measurements, missing-day states and simple accessible weight trend; distinguish current-target comparison from historical targets | P2 |
-| Weight entry | Logging can update profile; deletion does not reconcile the latest value | Centralize latest-measurement selection; allow edit/delete; consistently handle manual/Health measurements with timestamps and source | P1 |
-| Water | Quick-add today and delete | Custom amount, undo deletion, date history; optional user-set goal, without prescribing a universal water target | P2 |
-| You / profile | Summary and links exist | Show completeness, distinguish user-entered/imported/default values, and route to missing personal inputs | P1 |
-| Personal details | Editable name, height and weight | Draft edits, clear validation, measurement provenance, optional unit switching with one internal canonical representation | P0 / P2 |
-| Goals & daily target | Manual target only; goal is a preference | Add manual/estimated modes, required inputs, estimate explanation, preview and explicit Apply; retain manual override and target history | P1 |
-| Food preferences | Balanced/vegetarian only | Expand supported preferences only when meal metadata supports them; ingredient exclusions must not claim verified allergen safety | P2 |
-| Apple Health | Sequential queries, one status string, no update time | Per-metric loading/error/unavailable/stale state, freshness timestamps, independent queries and separate permission request/refresh functions | P1 |
-| Settings | Appearance, setup replay and static units | Add backup/restore entry, deliberate reset flow, actual build information; keep interface generation detection and accessible appearance controls | P1 |
-| Backup & restore — new | No portable recovery | Export a versioned JSON file through the share sheet; import with preview, validation, replace confirmation and rollback backup | P1 |
-| Storage recovery — new | A load failure blocks saving but has no recovery interface | Persistent read-only error state with retry, recover/export original file and explicit reset after backup; preserve original data | P0 |
-| Privacy & storage | Explains current local-only model | Update alongside backup/source changes; provide real data controls and accurate Health permission guidance | P1 |
-| Help & about | Basic FAQs exist | Document serving units, target estimate limits, read-only Health access, recovery and current build/version | P2 |
+| A. Trustworthy daily state | P0 | Correct day, measurement and Health status everywhere | Current transaction store |
+| B. Fast and accurate logging | P1 | Choose a real saved item, enter a portion and log once | Serving model, migrations |
+| C. Editable planning and history | P1 | Reschedule plans and manage dated body/water records | A and B |
+| D. Useful insights and data controls | P2 | Honest trends, target history and recovery archive management | A–C, target-history model |
+| E. Optional conveniences | P2/P3 | Opt-in reminders, units and researched target estimates | Stable daily-use flows |
+| F. Optional AI / LLM assistance | P1 pilot, then P2 | Explain and suggest from real saved meals; review every proposed action | A/B, consent settings, deterministic calculations and a secured service |
 
-## M1 — reliability implementation
+Recommended next task: group A, followed by a saved-meal picker and portion editor. Do not rebuild existing profile or backup pages just to add more screens.
 
-### 1. Transactional data operations
+## New pages and sheets to create
 
-Current issue: published property observers write the entire JSON file after each mutation. Views mutate arrays directly. A save failure sets a message but leaves the in-memory change; forms still dismiss. Moving a plan to the diary writes once when appending food and again when removing the plan.
+| Page / sheet | Entry point | Main functions | Priority |
+| --- | --- | --- | --- |
+| Choose food | Diary → Add; Today → Log a meal | Search actual saved meals; recent diary entries; manual entry; preserve selected day/category | P1 |
+| Portion editor | Choose food; meal details | Reference serving, entered quantity/unit, live calorie calculation, date/category, explicit save | P1 |
+| Planned meal editor | Tap a planned row | Change name/portion/category/day, copy to another date, remove or mark eaten when allowed | P1 |
+| Weight history & edit | Progress → Weight | Dated list, edit/delete, source labels, latest-value reconciliation | P1 |
+| Water entry & history | Water → Add custom; date control | Arbitrary valid mL, timestamp/category-free logging, edit/delete, past dates | P1 |
+| Daily summary | Progress → selected day | Logged food by meal, actual totals, target effective that day when known, missing-data explanation | P2 |
+| Target history | Goals → Target history | Effective dates, manual-target changes and periods with no target | P2 |
+| Recovery archives | Settings → Backup & restore → Previous files | List real archives, dates/sizes, export, validated restore preview, explicit removal | P2 |
+| Health metric detail | Tap a metric on Health/Today | Actual result freshness, sample date where available, source where available, error/retry and explanation | P1; may be a sheet rather than a full page |
+| Notification preferences | Settings → Reminders | Optional local food/water reminders, schedule and authorization state | P2; build after daily flows |
+| Calorie estimate review | Goals → Optional estimated target | Required inputs, method/source/assumptions, supported-profile checks, preview and explicit Apply | P2; research and calculation tests required first |
 
-Implementation:
+Do not add login, subscription, social, administrator or cloud-account pages to the current local personal app.
 
-- Extract domain models from the app entry point into Models/.
-- Introduce DiaryStore with explicit operations: add/update/delete food, log water, log weight, transfer planned meal, and update profile.
-- Use a candidate snapshot: validate, encode and persist atomically, then publish committed state. Do not report success if disk persistence fails.
-- Execute a plan-to-diary transfer as one snapshot and one write. Give the operation an identity so a repeated tap cannot create a second diary entry.
-- Introduce a schema version and explicit migration from current JSON. Preserve UUIDs and original timestamps.
-- Preserve existing file protection and atomic replacement; make encoding and file I/O avoid blocking typing on the main thread, with serialized writes that cannot complete out of order.
-- Keep errors visible in the relevant flow; centralize recovery when loading fails.
+## AI pages to create
 
-Completion checks:
+| Page / sheet | Entry point | Functions | Priority |
+| --- | --- | --- | --- |
+| What can I eat? | Meals → Ask for suggestions; Today shortcut | Optional request text, selected meal time, relevant preferences, actual available meal collection and an optional real remaining budget | P1 pilot |
+| Suggestion review | Open an AI suggestion | Show saved-meal source, portion, app-calculated calories when known, reason for the suggestion, and editable Log / Plan drafts | P1 pilot |
+| AI settings & privacy | You → Settings → AI assistance | Opt-in, provider/service disclosure, data-sharing scope, usage state, history controls and disable action | P1 prerequisite |
+| AI conversation/history | Assistant → History | Reopen actual saved suggestions, clear conversations and report an unhelpful result; never prefill fake chats | P2 |
 
-- Inject a failed write; the form remains open with all draft input and no committed entry.
-- Inject failure during plan transfer; either both changes commit or neither does.
-- Double-tap transfer; exactly one diary entry exists after relaunch.
-- Load the current unversioned diary; food, water, weights, plans and IDs survive migration.
-- Load malformed JSON; no original file is overwritten and recovery actions are available.
+## A — daily-state correctness
 
-### 2. Validation and input
+### A1. Health freshness and partial failures
 
-Current issue: NumericRow clamps the bound value on every update. Intermediate digits can become the lower bound, making normal editing unreliable. Food fields already use drafts, but profile fields do not.
+Observed: `HealthService.connect()` requests authorization and then reads four metrics sequentially. One failure stops later queries. Old values can remain visible, and no fetch/sample timestamps are shown.
 
-Implementation:
+Implement:
 
-- Use editable string/draft fields for profile and numeric forms; parse and validate on Apply/Save or leaving the field.
-- Accept locale-appropriate decimal separators; reject non-finite values and invalid portions.
-- Show the accepted range and a readable inline error instead of silently replacing input.
-- Treat allowed input ranges as validation boundaries, not nutritional recommendations.
-- Provide Done keyboard controls consistently and prevent accidental draft loss where material.
+- Separate requestAccess() from refresh(); foreground refresh must not run the permission-request flow unnecessarily.
+- Store a metric result with value, loading/error state, fetchedAt and sample date/source when actually available.
+- Refresh metrics independently. A failed weight query must not suppress available steps or height.
+- On failure, either clear the value or label its last known value as stale. Never show stale daily totals as current-day data.
+- Distinguish no result, unavailable device and query error. Do not claim to detect denied read access from empty results.
+- Display freshness on Today/Health and add a focused retry/detail sheet.
+- Keep dietary writes and imported food calories outside this release to avoid duplicate counting.
 
-Completion checks: typing, clearing, replacing, pasting, decimal commas/points and cancelling work on iOS 15 and modern iOS. Invalid input cannot be committed.
+Done when: simulated partial failures, empty queries, day changes and relaunches show honest states; manual refresh and available measurement imports work on the user's iPhone.
 
-### 3. Dates and measurement consistency
+### A2. Shared day and timezone context
 
-- Introduce a shared clock/day context refreshed on foreground, local day change and timezone change; the dashboard currently has its own timer while other pages use Date directly.
-- Preserve past-date selection when logging and prevent future eaten-food timestamps.
-- Timestamp profile weight sources; derive or deliberately select the latest measurement after add/edit/delete/import.
-- Define whether historical date grouping follows the current timezone or the original entry day, document the choice and test it.
+Observed: Today has a minute timer; other screens call Date directly or retain a date selected when the screen opened. Health activity can belong to an earlier day until refreshed.
 
-Completion checks: midnight, foreground after a day away, timezone changes, latest-weight deletion and an older backdated measurement do not produce misleading totals/profile values.
+Implement:
 
-## M2 — faster logging
+- Introduce a shared clock/day context injected into date-sensitive features.
+- Refresh on foreground, local day changes and timezone changes.
+- Follow Today automatically only when the user was viewing Today; preserve an intentionally selected historical date.
+- Define how historical entries group after travel/timezone changes. Document the policy before migration changes.
+- Recompute calories, water, planned meals, progress ranges and daily Health status together.
 
-Proposed model additions:
+Done when: leaving the app open over midnight and reopening after a day away produce the correct day without moving explicitly selected past-day entries.
 
-- CustomFood: stable ID, name, reference amount/unit, calories per reference serving, optional protein/carbohydrate/fat grams, source and modification date.
-- FoodEntry: eaten amount/unit plus a nutrition snapshot. Editing a library food must not retroactively change previous diary entries.
-- Favorites and recent selections reference library IDs; deleted library foods leave diary snapshots intact.
-- Existing Food records migrate as manual total-calorie entries without invented macros or portions.
+### A3. Weight consistency
 
-Completion checks: half/double servings calculate correctly; a favorite logs quickly; edited/deleted library items do not rewrite history; missing macros remain unknown rather than zero.
+Observed: logging a new dated weight can update the profile, but removing a weight does not reconcile it. Profile edits and Health imports have no measurement timestamp/source.
 
-## M3 — Health and calorie personalization
+Implement:
 
-### Health reliability
+- Introduce measurement provenance: user profile edit, dated manual entry or Health import, with a real timestamp.
+- Define the chosen/current measurement explicitly; do not simply pick the largest array position.
+- Route add/edit/delete/import through store operations that update history and profile in one transaction where appropriate.
+- Deleting the latest measurement must choose the next eligible measurement or leave current weight unset; never manufacture a replacement.
+- Protect a newer explicit profile measurement from an older imported or backdated value.
 
-- Split requestAccess() from refresh() so foreground refresh does not unnecessarily repeat authorization calls.
-- Refresh metrics independently so one query failure does not prevent the remaining metrics from updating.
-- Track result time, sample time where applicable, source and per-metric failure state.
-- Clear or visibly mark old values on error; never imply yesterday's steps are today's fresh steps.
-- Do not infer read authorization from an empty query or successful permission-sheet completion.
-- Show imported height/weight timestamps before applying them; use the same measurement consistency rules as manual entries.
-- Keep writes to Apple Health outside the first version to avoid new permissions and duplicate food accounting.
+Done when: editing/deleting the latest entry, logging a past measurement and importing older Health data all preserve the documented current-weight rule.
 
-### Optional estimated target
+### A4. Storage responsiveness and failure feedback
 
-- Keep manual mode fully functional and clearly distinguish an estimate from a prescription.
-- Add the inputs required by the selected adult energy-estimation method, including age and activity context; the existing optional age field is not currently collected or used.
-- Before implementing, select and document an authoritative method, assumptions, supported population and behavior for unsupported/incomplete profiles. Do not invent calorie floors or goal adjustments during UI work.
-- Explain each input and allow manual mode when a user does not want to supply it.
-- Preview the estimate and its assumptions; only apply it after an explicit user action. Do not silently overwrite a target after a new Health measurement.
-- Store target changes with effective dates. Explicitly choose how activity is handled so a general activity factor and tracked exercise are not counted twice.
+Observed: commit-before-publish and atomic writes exist. Encoding and file writes still run synchronously on the main actor, and some views mutate computed collection setters directly.
 
-Completion checks: incomplete profiles never produce a fabricated estimate; known formula examples pass unit tests; applying/restoring manual targets works; historical entries remain unchanged.
+Implement:
 
-## M4 — backup and first usable release
+- Keep the successful transaction semantics; serialize encoding/writes off the main thread.
+- Represent pending saves explicitly, prevent duplicate submissions and publish only committed state.
+- Move remaining array mutations behind named store operations with returned results.
+- Treat locked-device protection errors as retryable, preserving drafts and originals.
+- Keep archive creation and replacement ordered; a failed archive must still block replacement.
 
-- Export schema-versioned data with timestamps and units. Explain that the exported file contains personal information.
-- Validate imported structure, sizes, finite numeric values, identifiers and dates before committing.
-- First restore version: preview counts/date range, then replace after confirmation; create a rollback copy first. Merge is deferred until deduplication rules are defined.
-- Add app icon assets, readable app version/build and concise release notes.
-- Keep the bundle identifier stable so an IPA upgrade preserves the existing app container.
-- Correct README verification history: successful cloud builds and user-confirmed launch are established; feature/OS testing remains pending.
+Done when: a realistically large diary does not freeze editing, consecutive writes stay ordered, and failure injection leaves the last committed snapshot intact.
 
-Completion checks: export → restore round trip preserves all entries, IDs and dates; invalid import leaves the current diary untouched; upgrading the IPA retains data and preferences.
+## B — faster logging and real portions
 
-## UI and platform acceptance checks
+### B1. Extend the existing meal model, rather than create a duplicate catalog
 
-Retain the shared design system; finish interaction details rather than creating unrelated visual themes for every OS release.
+Current saved meals already provide reusable names, ingredients, calories and vegetarian classification. Add:
 
-- iOS 15: classic navigation and native sheets; complete all daily-use paths.
-- iOS 16–18: modern stack navigation, back behavior, drag indicators and keyboard dismissal.
-- iOS 26+: native system bars and sheet appearance; verify Reduce Motion tab behavior using an installation method available for that OS. No TrollStore support is implied.
-- Small iPhone layouts, large accessibility text, light/dark/system appearance, VoiceOver labels and navigation order, contrast, Reduce Motion and Reduce Transparency.
-- Long food names, large numbers, empty states, loading, no Health records, partial results, permission restrictions, failures and recovery.
-- Extend acceptance checks to every new screen; screenshots from one OS do not prove all versions render correctly.
+- Reference serving amount and unit, with optional gram weight when supplied by the user.
+- Optional user-entered macro values and nutrition source. Unknown macros remain nil.
+- Fractional consumed portions with consistent rounding for display and totals.
+- Entry snapshots of the selected serving/nutrition values. Editing/deleting a saved meal must not rewrite historical intake.
+- Stable links to the source meal when present; the snapshot must remain usable when that source is removed.
+- Favorites/recent usage derived from actual user activity.
 
-## Engineering structure and tests
+Migration: legacy calorie-only foods and meals remain usable as manual totals or explicitly labeled unspecified servings. Never invent grams, ingredients or macros for them.
 
-Suggested structure: Models/, Persistence/, Services/, Features/Today, Features/Diary, Features/Meals, Features/Progress, Features/Profile, SharedUI/. Split the current multi-screen source files as features change rather than moving everything in a separate untested rewrite.
+### B2. Add the Choose food and Portion editor flows
 
-Add meaningful automated tests for:
+- Offer saved meals, recent entries and manual logging from the same entry point.
+- Keep the day and meal category chosen in Diary.
+- Show computed calories before committing; reject zero/non-finite/invalid portions with field-level feedback.
+- Offer re-log/duplicate actions that open a reviewable draft, rather than immediately add another entry.
+- Start empty with a Create meal action when the user has no saved content.
 
-1. Schema migration, encode/decode, failed writes and restoration.
-2. Food totals, portion math, date boundaries and missing macro values.
-3. Plan transfer atomicity/idempotency and latest-weight selection.
-4. Health partial failure and stale-state handling via a mock service.
-5. Target estimation once its method and assumptions are selected.
+Done when: a half/double serving calculates correctly, saved entries survive relaunch, a past-day quick-add stays on that day, and editing a library item leaves previous entries unchanged.
 
-Cloud CI should run domain tests before packaging the IPA. Test UI paths on available simulators and the user's actual iPhone. Current hosted runners may not provide an iOS 15 simulator; report unavailable OS coverage rather than claiming it passed.
+### B3. Improve the existing diary and dashboard
 
-## Scope deferred until the basics pass
+- Diary: previous/next day and Today shortcuts, per-meal subtotals, search and undo deletion.
+- Today: recent real entries with edit links, actual plan summary, Health freshness and missing-target guidance.
+- Keep zero logged entries distinct from a complete day of recorded zero intake. Avoid treating a missing target as zero.
 
-Accounts, cloud synchronization, subscriptions, social features, automatic food-photo estimates, barcode scanning, background Health observers, Health food export and push notifications. These add dependencies or permissions without fixing the current core reliability gaps.
+Done when: deleting/undoing restores the original entry ID/date, and empty/unset states stay accurate after edits and target clearing.
 
-## Definition of a basic usable release
+## C — editable planning and history
 
-- Install/update the IPA and retain the diary.
-- Finish setup with real values or an explicitly chosen manual target.
-- Add/edit/delete food for today and a past day; all totals and saved state remain correct after relaunch.
-- Reuse a saved food with a serving size.
-- Transfer a planned meal exactly once, without partial saves.
-- Read optional Health data with honest freshness and failure states.
-- Export and restore the journal safely.
-- Navigate all screens with readable text and usable controls on the available supported test devices.
-- Publish the tested IPA with its version, changes and the remaining known limitations.
+### C1. Planned meal editor
 
-First implementation task: M1 transactional storage and draft validation, before introducing more data-writing pages.
+Current plan entries preserve copied meal names/calories but cannot be edited or moved.
 
-## Implementation update — critical-page iteration
+- Open a plan row to edit its snapshot, date, category and portion.
+- Copy to another day with a new identity; move with the original identity.
+- Keep existing atomic/idempotent consume behavior and block future eaten-food entries at the store boundary, not only in the UI.
+- Preserve plans when a saved meal is edited or deleted; offer an explicit update action if needed.
 
-Implemented in source: dedicated backup/restore and storage-recovery screens; preview and confirmation before replacement; preservation of original bytes; archive discovery after relaunch; versioned/validated snapshots; commit-before-publish storage; atomic/idempotent plan transfer; explicit drafts for onboarding, measurements, target and weight entry; save-success-dependent food/weight dismissal. A macOS Swift package and CI test step cover persistence and recovery behavior.
+Done when: edit/move/copy/delete and failed saves preserve the right IDs and dates; repeatedly marking eaten still logs exactly once.
 
-This does not complete all of M1/M4. Background file I/O, a shared clock/day context, full measurement provenance/reconciliation, app icon assets and comprehensive on-device recovery/backup UI testing remain open. M2 food library and M3 personalization/Health refinements are not part of this iteration.
+### C2. Weight and water entry/history
 
-## Implementation update — remove seeded content
+- Weight history: add an editor and a readable trend after provenance rules are implemented.
+- Water: custom amount/date, past-day browsing, edit and undo delete. A hydration goal is optional and user-set.
+- Both: drafts, validation, source/time where applicable, honest empty states and successful-save-dependent dismissal.
 
-The app no longer seeds example meals or numeric profile defaults. New measurements and calorie targets are optional and absent until supplied. Goals and food styles start unselected. The meal collection now starts empty and supports user-created, editable, deletable meals; preferences and planning use that persisted collection. Existing user records are preserved, including values previously saved in older versions. Synthetic unit-test inputs remain isolated in the test target and are not app content.
+Done when: backdating, cancelling, editing, deleting and relaunching preserve totals and measurement consistency.
+
+## D — insights and data control
+
+### D1. Daily summary, trends and target history
+
+- Record changes to manual targets with effective dates, including explicitly unset targets.
+- Do not retroactively invent targets for older entries. Clearly label older comparisons as unavailable or current-target comparisons.
+- Add 7/30-day calorie views, a weight trend from actual measurements and drill-down to a daily summary.
+- Show logging coverage; do not calculate an apparent low average by silently counting unlogged days as zero consumption.
+- Keep summaries descriptive. Do not extrapolate unsupported completion dates from a few weigh-ins.
+
+Done when: target changes do not rewrite past meaning; sparse records and missing targets remain understandable; VoiceOver can read chart values without needing to see a graph.
+
+### D2. Archive browser and backup improvements
+
+- List actual retained recovery files with modification dates and sizes.
+- Preview validated content when readable; allow original-byte export when unreadable.
+- Restore using the existing confirmation and archive-before-replace path.
+- Add explicit archive deletion/retention controls; never silently delete the only recovery copy.
+- Expand backup previews to cover all collections and date ranges when actually present.
+- Consider merge only after deduplication rules exist; retain replace-only restore until then.
+
+Done when: multiple real archives are accessible across relaunches, cancelled restore changes nothing, and corrupt archives can still be exported safely.
+
+## E — optional features, after core flows
+
+### E1. Units and reminders
+
+- Units: optional imperial display with one canonical internal measurement format and tested conversions. No change to underlying values merely from changing display units.
+- Reminders: local notifications only after explicit opt-in, editable schedules and accurate authorization status. No default notification schedule.
+
+### E2. Research-backed target estimation
+
+This remains part of the original product direction, but current age/activity fields are context only.
+
+Before coding, select an authoritative estimation method and document required inputs, assumptions, supported population and unsupported-profile behavior. Add explicit input collection, calculation tests, an explanation/review page and an Apply action. Preserve manual mode and absent targets. New Health measurements must not silently overwrite a target. Decide activity accounting so exercise is not counted twice.
+
+No formula, calorie floor, weight-change pace or goal deadline is prescribed by this planning document.
+
+## F — AI and LLM implementation plan
+
+### F1. Purpose and boundaries
+
+The first AI feature answers **“What can I eat from my saved meals?”** It should help the user choose and understand an option, while the app owns facts, calculations and writes.
+
+- Suggestions are optional. Manual logging, planning, profile editing and backups remain available without AI or a network connection.
+- Start with the real user-created meal collection, actual logged totals, explicit preferences and any existing manual target. Do not add a demonstration catalog to make the assistant appear useful.
+- Separate three states in the UI: **saved user meal**, **AI-generated idea**, and **logged/planned entry**. An idea is not a measured food record.
+- When data is missing, ask for the missing information or explain that it cannot be calculated. Do not invent calories, macros, serving weights, Health activity or targets.
+- Keep automatic calorie-target prescriptions, diagnoses and claims of verified allergen safety outside the AI pilot. The AI must not silently change goals based on body measurements or exercise.
+
+### F2. Suggestion features, in order
+
+| Feature | Input | Output / action | Stage |
+| --- | --- | --- | --- |
+| Saved-meal suggestions | Saved meals, food style, exclusions, optional requested meal and real remaining calories | Up to three valid meal IDs with a concise explanation; actual nutrition is computed/displayed by the app | First pilot |
+| Portion-aware alternatives | Saved serving definitions and a user-selected budget | Valid portions and comparisons; arithmetic and limits are deterministic, not model-authored | After serving editor |
+| Natural-language logging assistance | User description plus matching saved meals | An editable food-entry draft; unknown amounts/calories remain blank | P2 |
+| Daily/weekly explanation | Aggregated real logs, logging coverage and known targets | Descriptive summary of recorded data, with missing days clearly acknowledged | P2 |
+| New meal ideas from user ingredients | Ingredients explicitly supplied by the user | Labeled generated recipe/meal draft, not added to the library or diary automatically; nutrition remains unknown until supported by actual inputs or a verified source | P2 |
+
+For the initial release, prefer “find and explain a matching saved meal” over unrestricted diet chat. Recipe generation and photo-based estimates are not required to ship this assistant.
+
+### F3. Suggested interaction
+
+1. User opens What can I eat? and chooses the context they want to use.
+2. The app shows a compact context summary: saved-meal count, chosen preferences and target/budget availability. AI sharing is off until opted in.
+3. The user enters a request, or explicitly taps a request action such as Suggest from my saved meals. Action labels are controls; no sample conversation is stored.
+4. The app filters/ranks eligible saved meals and calculates known calorie values before asking the model for a structured explanation.
+5. A response is validated against the permitted meal IDs and constraints. Unknown IDs, unsupported values and invalid portions are rejected.
+6. Suggestion review displays the actual source meal, calculated nutrition where available and a short reason. It identifies generated content clearly.
+7. The user can adjust a portion, open the original meal, or prepare a Log / Plan draft. Nothing enters the diary, meal collection or planner without an explicit confirmation and successful store transaction.
+8. With no saved meals or no eligible matches, show a real empty state and Create meal / Change filters actions. Do not fabricate a replacement meal or force a budget match.
+
+### F4. Architecture
+
+**Deterministic app layer**
+
+- Build a SuggestionContext from the minimum selected data: eligible meal IDs, serving information, user preferences and known budget. Missing values stay nil.
+- Apply exclusions, input validation, maximum portions and calorie arithmetic outside the model. Text-based exclusions still cannot establish allergen safety.
+- Introduce a SuggestionService protocol. The assistant UI should not depend directly on one model provider or network client.
+- Represent suggestions as drafts with source references and a review status. Use the existing transaction store only after user confirmation.
+
+**Optional online service**
+
+- A cloud LLM requires a new backend/service boundary. The current app has no backend; do not imply AI already works locally or offline.
+- Keep provider credentials on the server. Never embed a secret API key in Swift source, the IPA, GitHub commits or exported backups.
+- Add authenticated/controlled access, input-size limits, request quotas, timeouts and cancellation. A public unrestricted proxy is not acceptable.
+- Keep the provider and model configurable; select them after evaluating supported output validation, quality, latency, privacy terms and measured cost. No particular vendor/model is selected by this plan.
+- Return a bounded structured response: known source meal IDs, explanation text, optional supported portion proposal and explicit missing-data flags. The client validates again before display/action.
+- Treat user text, meal descriptions and any retrieved content as data, not instructions. The model has no direct storage, Health, notification or account-management permissions.
+
+**Offline behavior**
+
+- Offer deterministic filtering/ranking from the saved meal collection when AI is unavailable. Label it as local matching, not an AI response.
+- On failed, timed-out or cancelled requests, keep the user's draft and allow retry or manual selection. Never show a simulated successful answer.
+- Optional on-device models are a separate later evaluation. Do not assume every iOS 15 device supports an on-device LLM.
+
+### F5. Privacy and user control
+
+- Implement AI settings before the first provider request. Show what leaves the device, who processes it and why.
+- Default to sharing only the chosen meal/preference context. Raw Health samples, full historical diaries, name, age and body measurements are not part of the initial suggestion payload.
+- If later features need additional personal data, specify that scope and request explicit opt-in rather than silently widening the payload.
+- Confirm provider retention and processing behavior during provider selection; do not promise zero retention or confidentiality without evidence and the correct service configuration.
+- Keep diagnostic logs free of full personal prompts, Health records and secrets. Use minimal request metadata for reliability/cost monitoring.
+- Allow disabling AI, clearing locally stored conversations and cancelling in-flight requests. Explain whether any provider-side deletion is supported; local deletion must not be described as deleting all provider records.
+- Decide separately whether AI history is included in backups. Default to excluding conversations until that choice and its export implications are explicit.
+- Update Privacy & storage and Help before release, because enabling online AI changes the current local-only data flow.
+
+### F6. Rules for suggestions and nutritional accuracy
+
+- The app calculates the remaining budget only from an explicitly set target and actual logged entries. An unset target does not become zero or a guessed default.
+- Calories/macros shown as facts come from user-entered serving data or a separately integrated, attributed source. Model-generated numbers must not be presented as verified nutrition.
+- Display the reason an option was suggested using actual context. Avoid claims that a meal is medically suitable or guaranteed safe.
+- If a user asks for a meal beyond their remaining budget, explain the constraint without refusing ordinary food logging; keep the manual target a user-controlled guide.
+- Summaries describe recorded data, not assumed full intake. Missing logging days are not evidence of fasting or zero consumption.
+- No automatic diet changes, diary writes or notifications follow from an AI response. Any proposed change opens a reviewable draft.
+
+### F7. Evaluation and release checks
+
+Build an isolated test/evaluation set; never ship those examples as user data. Include:
+
+- Empty meal collection, no target, missing nutrition and incomplete portions.
+- Correct eligibility for vegetarian/exclusion constraints; no unknown saved-meal IDs.
+- Incorrect model arithmetic or invented nutrition: the app rejects/replaces it with deterministic facts or unknown values.
+- Sparse logging, absent Health results and stale measurements.
+- Prompt-injection text inside meal names/descriptions; it cannot alter permissions or trigger a write.
+- Invalid structured responses, unrelated answers, request errors, offline mode, cancellation and repeated taps.
+- A proposed Log / Plan action is committed once, only after confirmation, and remains recoverable on save failure.
+- Data-sharing payload tests proving excluded personal/Health fields are absent.
+- Measured response time, cost per request and user feedback on whether the suggestion was useful. Set service limits from the measured pilot rather than inventing pricing figures.
+
+AI release gate: deterministic checks pass, a provider/service and privacy configuration are selected, secret handling and quotas are verified, all writes require review, and the user can still complete the same task without AI.
+
+### F8. Delivery stages
+
+1. Build local matching and SuggestionService contracts after the portion model is stable.
+2. Build AI settings/consent and the What can I eat? / Suggestion review pages with honest unavailable states.
+3. Implement a secured provider adapter and structured-result validation; evaluate against the isolated cases.
+4. Release a small opt-in saved-meal suggestion pilot, measure usefulness and failure rates.
+5. Add natural-language drafts, summaries and ingredient-based ideas only after the pilot passes its quality/privacy gates.
+
+AI idea generation does not reverse the no-mock-data requirement: generated drafts are clearly labeled, contain no fabricated nutrition, and become saved records only through an explicit user action.
+
+## Data model and engineering changes
+
+| Change | Reason / migration rule |
+| --- | --- |
+| MetricResult / MeasurementSource | Honest freshness and consistent source/time handling |
+| Shared DayContext | One day boundary for dashboard, diary, water, plans and Health |
+| ServingDefinition + FoodEntry nutrition snapshot | Fractional portions without rewriting history |
+| Favorite/recent usage metadata | Fast logging from the real saved collection |
+| TargetChange records | Historical targets, including unknown/unset periods |
+| Archive metadata | Browse actual files without creating placeholder records |
+| SuggestionContext / SuggestionDraft / source references | Ground optional AI responses in actual meals and keep proposed actions uncommitted |
+| AI consent scope and service configuration | Explicit online-data sharing and provider-independent integration |
+| Async serialized persistence operations | UI responsiveness with current atomic commit guarantees |
+
+Version the schema when introducing new meanings or units. Add explicit migration fixtures for every supported prior schema. Preserve identifiers, old numeric profile values, journal timestamps and user-created meals. Do not infer old values were mocks based solely on their numeric value.
+
+Split the large multi-screen files as the relevant features change: Features/Diary, Features/Meals, Features/Progress, Features/Profile, Services and Persistence. Avoid an unrelated file-moving rewrite before functional changes are verified.
+
+## Verification and release gates
+
+Keep the existing 13 domain tests and add behavior coverage for each change:
+
+- Health: independent failures, unavailable results, stale values, refresh concurrency and permission/refresh separation.
+- Dates: midnight, foreground after a day away, intentional historical selection and timezone policy.
+- Measurements: latest selection, edit/delete/import ordering and unset state.
+- Portions: fractions, invalid inputs, optional macros, rounding and immutable history.
+- Planning: edit/move/copy identity rules, future-date enforcement and idempotent consumption.
+- Storage: concurrent save ordering, write failure, migration, locked-file handling and archive/restore cancellation.
+- Insights: sparse logging, unknown historical targets and target clearing.
+
+UI acceptance: small iPhone, large accessibility text, VoiceOver, light/dark/system, Reduce Motion/Transparency, long names, keyboard dismissal, docked Save and unsaved draft behavior. Run available simulator checks in CI and actual Health/file-picker tests on the user's phone. Report unavailable OS coverage rather than claiming it passed.
+
+Each release must pass domain tests and IPA compilation, preserve the bundle identifier/data container, include a version/build and explain remaining limitations. Add real app icon assets and concise release notes; use Bundle metadata rather than fabricated version fallbacks.
+
+## Explicitly deferred
+
+Cloud accounts/sync, subscriptions, social feeds, AI food-photo estimates, barcode scanning, remote food search, background Health delivery and dietary writes. A real external food database may be evaluated later with source attribution and failure handling; never replace missing results with sample data.
+
+## Next concrete work package
+
+1. Implement independent Health states and freshness timestamps.
+2. Add shared day context and measurement reconciliation.
+3. Extend serving/snapshot models with migrations and domain tests.
+4. Build Choose food and Portion editor, connected to the existing diary.
+5. Add Planned meal editor and dated weight/water management.
+6. Build local meal matching plus AI settings, then the opt-in saved-meal suggestion pilot described in group F.
+
+This update is planning only. It does not change app behavior or initiate the above work.
+
+## Critical-first implementation update — 19 October 2026
+
+Version 0.5.0 implements the first critical page package: Health metric detail/status and per-metric retry, independent Health queries with freshness, permission/refresh separation, shared day refresh, Weight history and entry editing/deletion with current-measurement reconciliation, Water history/custom entry editing, and Planned meal editing/rescheduling/copying. These pages use actual stored/Health data and explicit persistence operations.
+
+This is not a claim that the entire roadmap is complete. Async persistence in A4, full portion models and Choose food, target history, the archive browser and the optional AI/backend pilot remain open. Real iPhone testing of Health permissions, date changes, sources and the new editors is required after the cloud checks.

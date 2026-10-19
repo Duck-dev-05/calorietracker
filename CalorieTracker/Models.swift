@@ -12,6 +12,9 @@ struct Profile: Codable {
     var target: Double?
     var goal = ""
     var preferences = ""
+    var weightMeasuredAt: Date?
+    var weightSource: String?
+    var weightEntryID: UUID?
 }
 struct Food: Identifiable, Codable {
     var id = UUID()
@@ -42,5 +45,5 @@ struct Meal: Identifiable, Codable {
 
 }
 struct WaterEntry: Identifiable, Codable { var id = UUID(); var date = Date(); var milliliters: Int }
-struct WeightEntry: Identifiable, Codable { var id = UUID(); var date = Date(); var kilograms: Double }
+struct WeightEntry: Identifiable, Codable { var id = UUID(); var date = Date(); var kilograms: Double; var source: String? }
 struct PlannedMeal: Identifiable, Codable { var id = UUID(); var date: Date; var name: String; var calories: Int; var category: String }

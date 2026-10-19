@@ -138,7 +138,7 @@ struct PersonalDetailsScreen: View {
         Surface {
             HStack { IconTile(icon: "heart.fill", color: .pink); VStack(alignment: .leading, spacing: 4) { Text("Less typing. More you.").font(.headline); Text("Import from Apple Health").font(.caption).foregroundStyle(.secondary) } }
             if let h = health.height { Button("Use height · \(h, specifier: "%.1f") cm") { height = h.formatted(.number.grouping(.never)) }.buttonStyle(.bordered) }
-            if let w = health.weight { Button("Use weight · \(w, specifier: "%.1f") kg") { weight = w.formatted(.number.grouping(.never)) }.buttonStyle(.bordered) }
+            NavigationLink(destination: HealthMetricScreen(metric: .weight)) { Text("Review Health weight & measurement date") }.font(.subheadline)
             NavigationLink(destination: HealthScreen()) { Label("Open Health connection", systemImage: "arrow.up.right").font(.subheadline.weight(.semibold)) }
             Text("Imported values fill your draft. Review them before saving.").font(.caption).foregroundStyle(.secondary)
         }
@@ -159,7 +159,11 @@ struct PersonalDetailsScreen: View {
     private func save() {
         guard valid else { return }
         let h = NumberDraftField.value(height, range: 80...250), w = NumberDraftField.value(weight, range: 20...400)
-        if diary.transaction({ $0.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); $0.profile.age = Int(age); $0.profile.height = h; $0.profile.weight = w; $0.profile.activityLevel = activity == "Not specified" ? nil : activity }) { dismiss() }
+        if diary.transaction({ saved in
+            saved.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); saved.profile.age = Int(age); saved.profile.height = h
+            if saved.profile.weight != w { saved.profile.weight = w; saved.profile.weightMeasuredAt = w == nil ? nil : diary.now; saved.profile.weightSource = w == nil ? nil : "Profile edit"; saved.profile.weightEntryID = nil }
+            saved.profile.activityLevel = activity == "Not specified" ? nil : activity
+        }) { dismiss() }
     }
 }
 struct GoalsScreen: View {

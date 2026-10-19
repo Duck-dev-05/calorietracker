@@ -7,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var health: HealthService
     @Environment(\.scenePhase) private var scenePhase
+    private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     @AppStorage("appearance") private var appearance = "System"
     @AppStorage("onboardingComplete") private var onboarded = false
     @AppStorage("healthEnabled") private var healthEnabled = false
@@ -28,9 +29,16 @@ struct ContentView: View {
         .alert("Storage issue", isPresented: Binding(get: { diary.storageError != nil }, set: { if !$0 { diary.storageError = nil } })) {
             Button("OK") { diary.storageError = nil }
         } message: { Text(diary.storageError ?? "") }
+        .onReceive(dayTimer) { _ in updateDay(refresh: false) }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in updateDay(refresh: true) }
         .onChange(of: scenePhase) { phase in
-            if phase == .active && healthEnabled && !health.busy { Task { await health.connect() } }
+            if phase == .active { updateDay(refresh: true) }
         }
+    }
+    private func updateDay(refresh: Bool) {
+        let changed = diary.updateClock()
+        health.expireOldResults()
+        if (refresh || changed) && healthEnabled && !health.busy { Task { await health.refresh() } }
     }
 }
 struct EmptyCard: View {
@@ -54,12 +62,10 @@ struct DashboardView: View {
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var health: HealthService
     @State private var adding = false
-    @State private var clock = Date()
-    private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     private var water: Int { diary.water.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.milliliters } }
     var body: some View {
         PageCanvas {
-            PageIntro(eyebrow: clock.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), title: diary.profile.name.flatMap { $0.isEmpty ? nil : "Hello, \($0)." } ?? "A little more balance.", detail: "Small choices. A healthier everyday.")
+            PageIntro(eyebrow: diary.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), title: diary.profile.name.flatMap { $0.isEmpty ? nil : "Hello, \($0)." } ?? "A little more balance.", detail: "Small choices. A healthier everyday.")
             VStack(spacing: 20) {
                 HStack { Label("Daily nourishment", systemImage: "sparkles").font(.subheadline.weight(.semibold)); Spacer(); Text("TODAY").font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.7)) }
                 CalorieRing(eaten: diary.consumed, target: diary.profile.target).frame(maxWidth: .infinity)
@@ -74,8 +80,8 @@ struct DashboardView: View {
             Button { adding = true } label: { Label("Log a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
             SectionHeading(title: "Your daily rhythm", subtitle: "Movement and hydration, at a glance")
             HStack(alignment: .top, spacing: 12) {
-                stat("Steps", health.steps.map { Int($0).formatted() } ?? "—", "figure.walk", NourishStyle.accent)
-                stat("Active kcal", health.activeEnergy.map { Int($0).formatted() } ?? "—", "flame.fill", NourishStyle.peach)
+                NavigationLink(destination: HealthMetricScreen(metric: .steps)) { stat("Steps", health.steps.map { Int($0).formatted() } ?? "—", "figure.walk", NourishStyle.accent) }.buttonStyle(.plain)
+                NavigationLink(destination: HealthMetricScreen(metric: .activeEnergy)) { stat("Active kcal", health.activeEnergy.map { Int($0).formatted() } ?? "—", "flame.fill", NourishStyle.peach) }.buttonStyle(.plain)
             }
             Surface {
                 NavigationLink(destination: WaterScreen()) { RouteRow(title: "Stay refreshed", subtitle: "\(water) mL of water logged today", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
@@ -94,7 +100,7 @@ struct DashboardView: View {
             Text("Activity is shown separately from your food target.").font(.caption).foregroundStyle(.secondary)
         }.navigationTitle("Nourish").navigationBarTitleDisplayMode(.inline)
         .toolbar { NavigationLink(destination: ProfileScreen()) { Image(systemName: "person.crop.circle").font(.title3) }.accessibilityLabel("Your profile") }
-        .sheet(isPresented: $adding) { AddFoodView().adaptiveEntrySheet() }.onReceive(timer) { clock = $0 }
+        .sheet(isPresented: $adding) { AddFoodView().adaptiveEntrySheet() }
     }
     private func balance(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 6) { Text(title).font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.65)); Text(value).font(.system(.title2, design: .rounded).weight(.semibold)) + Text(" kcal").font(.caption) }
@@ -128,6 +134,7 @@ struct DiaryView: View {
             }
         }.listStyle(.insetGrouped).navigationTitle("Food diary").toolbar { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Add food") }
         .sheet(isPresented: $adding) { AddFoodView(initialDate: date).adaptiveEntrySheet() }
+        .modifier(FollowCurrentDay(selection: $date))
     }
 }
 struct AddFoodView: View {

@@ -31,6 +31,9 @@ struct DiarySnapshot: Codable {
         let categories = ["Breakfast", "Lunch", "Dinner", "Snacks"]
         func validName(_ value: String) -> Bool { !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && value.count <= 500 }
         func validDate(_ value: Date) -> Bool { value.timeIntervalSinceReferenceDate.isFinite && value >= Date(timeIntervalSince1970: 0) && value < Date(timeIntervalSince1970: 4_102_444_800) }
+        if let measured = profile.weightMeasuredAt, !validDate(measured) { throw DiaryFailure.invalid("The current weight has an invalid measurement date.") }
+        guard (profile.weightSource?.count ?? 0) <= 300, (weights ?? []).allSatisfy({ ($0.source?.count ?? 0) <= 300 }) else { throw DiaryFailure.invalid("A measurement source is too long.") }
+
         guard foods.allSatisfy({ validName($0.name) && (1...10000).contains($0.calories) && validDate($0.date) && ($0.category == nil || categories.contains($0.category!)) }),
               (water ?? []).allSatisfy({ (1...10000).contains($0.milliliters) && validDate($0.date) }),
               (weights ?? []).allSatisfy({ $0.kilograms.isFinite && (20...400).contains($0.kilograms) && validDate($0.date) }),
@@ -59,6 +62,8 @@ enum DiaryFailure: LocalizedError {
 
 @MainActor final class Diary: ObservableObject {
     @Published private(set) var snapshot: DiarySnapshot = .empty
+    @Published private(set) var now = Date()
+    private var timeZoneID = TimeZone.current.identifier
     @Published var storageError: String?
     @Published private(set) var storageBlocked = false
     @Published private(set) var lastArchiveURL: URL?
@@ -109,7 +114,8 @@ enum DiaryFailure: LocalizedError {
         } catch { storageError = "Changes were not saved. \(error.localizedDescription)"; return false }
     }
     @discardableResult func upsertFood(_ food: Food) -> Bool {
-        transaction { saved in
+        guard food.date <= now.addingTimeInterval(60) else { storageError = "Food cannot be logged in the future."; return false }
+        return transaction { saved in
             if let index = saved.foods.firstIndex(where: { $0.id == food.id }) { saved.foods[index] = food }
             else { saved.foods.append(food) }
         }
@@ -118,18 +124,73 @@ enum DiaryFailure: LocalizedError {
     @discardableResult func consumePlan(_ id: UUID) -> Bool {
         // A second tap after a committed transfer is a no-op.
         guard let meal = planned.first(where: { $0.id == id }) else { return true }
-        guard Calendar.current.startOfDay(for: meal.date) <= Calendar.current.startOfDay(for: Date()) else { storageError = "Future meals cannot be marked as eaten."; return false }
+        guard Calendar.current.startOfDay(for: meal.date) <= Calendar.current.startOfDay(for: now) else { storageError = "Future meals cannot be marked as eaten."; return false }
         return transaction {
-            let date = Calendar.current.isDateInToday(meal.date) ? Date() : Calendar.current.startOfDay(for: meal.date)
+            let date = Calendar.current.isDate(meal.date, inSameDayAs: now) ? now : Calendar.current.startOfDay(for: meal.date)
             $0.foods.append(Food(name: meal.name, calories: meal.calories, date: date, category: meal.category))
             $0.planned?.removeAll { $0.id == id }
         }
     }
-    @discardableResult func logWeight(_ entry: WeightEntry) -> Bool {
-        transaction {
-            if entry.date >= (($0.weights ?? []).map(\.date).max() ?? .distantPast) { $0.profile.weight = entry.kilograms }
-            $0.weights = ($0.weights ?? []) + [entry]
+    @discardableResult func logWeight(_ entry: WeightEntry) -> Bool { upsertWeight(entry) }
+    @discardableResult func upsertWeight(_ entry: WeightEntry) -> Bool {
+        guard entry.date <= now.addingTimeInterval(60) else { storageError = "A weight measurement cannot be in the future."; return false }
+        return transaction { saved in
+            let old = (saved.weights ?? []).first { $0.id == entry.id }
+            let wasCurrent = old?.id == saved.profile.weightEntryID && old != nil
+            var entries = saved.weights ?? []
+            if let index = entries.firstIndex(where: { $0.id == entry.id }) { entries[index] = entry } else { entries.append(entry) }
+            saved.weights = entries
+            if wasCurrent { saved.profile.weight = nil; saved.profile.weightMeasuredAt = nil; saved.profile.weightSource = nil; saved.profile.weightEntryID = nil }
+            Self.reconcileWeight(&saved)
         }
+    }
+    @discardableResult func deleteWeight(_ id: UUID) -> Bool {
+        transaction { saved in
+            let old = (saved.weights ?? []).first { $0.id == id }
+            let wasCurrent = old?.id == saved.profile.weightEntryID && old != nil
+            saved.weights?.removeAll { $0.id == id }
+            if wasCurrent { saved.profile.weight = nil; saved.profile.weightMeasuredAt = nil; saved.profile.weightSource = nil; saved.profile.weightEntryID = nil }
+            Self.reconcileWeight(&saved)
+        }
+    }
+    private static func reconcileWeight(_ saved: inout DiarySnapshot) {
+        guard let latest = (saved.weights ?? []).max(by: { $0.date < $1.date }) else { return }
+        // Unknown legacy provenance is replaced only after an explicit history operation.
+        if latest.date >= (saved.profile.weightMeasuredAt ?? .distantPast) {
+            saved.profile.weight = latest.kilograms; saved.profile.weightMeasuredAt = latest.date; saved.profile.weightSource = latest.source ?? "Manual weight log"; saved.profile.weightEntryID = latest.id
+        }
+    }
+    @discardableResult func importWeight(_ value: Double, measuredAt date: Date, source: String) -> Bool {
+        guard date <= now.addingTimeInterval(60) else { storageError = "The measurement has a future date."; return false }
+        if let current = profile.weightMeasuredAt, date < current { storageError = "This Health measurement is older than your current profile measurement. Your current value was kept."; return false }
+        return transaction { $0.profile.weight = value; $0.profile.weightMeasuredAt = date; $0.profile.weightSource = source; $0.profile.weightEntryID = nil }
+    }
+    @discardableResult func updateClock(to newNow: Date = Date(), calendar: Calendar = .current) -> Bool {
+        let changed = !calendar.isDate(now, inSameDayAs: newNow) || timeZoneID != calendar.timeZone.identifier
+        timeZoneID = calendar.timeZone.identifier; now = newNow
+        return changed
+    }
+    @discardableResult func upsertWater(_ entry: WaterEntry) -> Bool {
+        guard entry.date <= now.addingTimeInterval(60) else { storageError = "Water cannot be logged in the future."; return false }
+        return transaction { saved in
+            var entries = saved.water ?? []
+            if let i = entries.firstIndex(where: { $0.id == entry.id }) { entries[i] = entry } else { entries.append(entry) }
+            saved.water = entries
+        }
+    }
+    @discardableResult func deleteWater(_ id: UUID) -> Bool { transaction { $0.water?.removeAll { $0.id == id } } }
+    @discardableResult func upsertPlan(_ plan: PlannedMeal) -> Bool {
+        transaction { saved in
+            var plans = saved.planned ?? []
+            if let i = plans.firstIndex(where: { $0.id == plan.id }) { plans[i] = plan } else { plans.append(plan) }
+            saved.planned = plans
+        }
+    }
+    @discardableResult func deletePlan(_ id: UUID) -> Bool { transaction { $0.planned?.removeAll { $0.id == id } } }
+    @discardableResult func copyPlan(_ id: UUID, to date: Date) -> Bool {
+        guard var plan = planned.first(where: { $0.id == id }) else { storageError = "This plan no longer exists."; return false }
+        plan.id = UUID(); plan.date = date
+        return upsertPlan(plan)
     }
     func backupData() throws -> Data { guard !storageBlocked else { throw DiaryFailure.invalid("Export the original file from recovery instead.") }; return try snapshot.encoded() }
     func originalData() throws -> Data { try Data(contentsOf: url) }
@@ -150,7 +211,7 @@ enum DiaryFailure: LocalizedError {
             return true
         } catch { storageError = "Diary was not replaced. \(error.localizedDescription)"; return false }
     }
-    var today: [Food] { foods.filter { Calendar.current.isDateInToday($0.date) } }
+    var today: [Food] { foods.filter { Calendar.current.isDate($0.date, inSameDayAs: now) } }
     var consumed: Int { today.reduce(0) { $0 + $1.calories } }
     var remaining: Int? { profile.target.map { Int($0) - consumed } }
 }

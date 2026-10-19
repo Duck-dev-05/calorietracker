@@ -2,53 +2,58 @@ import Foundation
 import Combine
 import HealthKit
 
-@MainActor final class HealthService: ObservableObject {
-    @Published var steps: Double?
-    @Published var activeEnergy: Double?
-    @Published var height: Double?
-    @Published var weight: Double?
-    @Published var status = "Connect to see activity from Apple Health."
-    @Published var busy = false
+@MainActor final class HealthKitProvider: HealthReadingProvider {
     private let store = HKHealthStore()
-    func connect() async {
-        guard !busy else { return }
-        guard HKHealthStore.isHealthDataAvailable() else {
-            status = "Apple Health is unavailable on this device."; return
-        }
-        busy = true
-        defer { busy = false }
-        do {
-            let identifiers: [HKQuantityTypeIdentifier] = [.height, .bodyMass, .stepCount, .activeEnergyBurned]
-            let types = Set(identifiers.map { HKObjectType.quantityType(forIdentifier: $0)! })
-            try await store.requestAuthorization(toShare: [], read: types)
-            steps = try await total(.stepCount, unit: .count())
-            activeEnergy = try await total(.activeEnergyBurned, unit: .kilocalorie())
-            height = try await latest(.height, unit: .meterUnit(with: .centi))
-            weight = try await latest(.bodyMass, unit: .gramUnit(with: .kilo))
-            status = "Updated from available Health data. Missing values may mean no records or read access. Manage access in Apple Health."
-        } catch { status = "Could not refresh Health data: \(error.localizedDescription)" }
+    var available: Bool { HKHealthStore.isHealthDataAvailable() }
+    private func type(_ metric: HealthMetric) -> HKQuantityType {
+        let id: HKQuantityTypeIdentifier
+        switch metric { case .steps: id = .stepCount; case .activeEnergy: id = .activeEnergyBurned; case .height: id = .height; case .weight: id = .bodyMass }
+        return HKObjectType.quantityType(forIdentifier: id)!
     }
-    private func total(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit) async throws -> Double? {
-        let type = HKObjectType.quantityType(forIdentifier: identifier)!
-        let start = Calendar.current.startOfDay(for: Date())
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+    private func unit(_ metric: HealthMetric) -> HKUnit {
+        switch metric { case .steps: return .count(); case .activeEnergy: return .kilocalorie(); case .height: return .meterUnit(with: .centi); case .weight: return .gramUnit(with: .kilo) }
+    }
+    func requestAccess() async throws { try await store.requestAuthorization(toShare: [], read: Set(HealthMetric.allCases.map { type($0) })) }
+    func read(_ metric: HealthMetric, now: Date) async throws -> HealthReading? {
+        let quantityType = type(metric), quantityUnit = unit(metric)
+        if metric.isDaily {
+            let predicate = HKQuery.predicateForSamples(withStart: Calendar.current.startOfDay(for: now), end: now, options: .strictStartDate)
+            return try await withCheckedThrowingContinuation { continuation in
+                let query = HKStatisticsQuery(quantityType: quantityType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, error in
+                    if let error { continuation.resume(throwing: error) }
+                    else { continuation.resume(returning: result?.sumQuantity().map { HealthReading(value: $0.doubleValue(for: quantityUnit)) }) }
+                }
+                store.execute(query)
+            }
+        }
         return try await withCheckedThrowingContinuation { continuation in
-            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, error in
+            let predicate = HKQuery.predicateForSamples(withStart: nil, end: now)
+            let query = HKSampleQuery(sampleType: quantityType, predicate: predicate, limit: 1, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]) { _, results, error in
                 if let error { continuation.resume(throwing: error) }
-                else { continuation.resume(returning: result?.sumQuantity()?.doubleValue(for: unit)) }
+                else {
+                    let sample = results?.first as? HKQuantitySample
+                    continuation.resume(returning: sample.map { HealthReading(value: $0.quantity.doubleValue(for: quantityUnit), sampleDate: $0.endDate, source: $0.sourceRevision.source.name) })
+                }
             }
             store.execute(query)
         }
     }
-    private func latest(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit) async throws -> Double? {
-        let type = HKObjectType.quantityType(forIdentifier: identifier)!
-        let predicate = HKQuery.predicateForSamples(withStart: nil, end: Date())
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: 1, sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]) { _, results, error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume(returning: (results?.first as? HKQuantitySample)?.quantity.doubleValue(for: unit)) }
-            }
-            store.execute(query)
-        }
+}
+@MainActor final class HealthService: ObservableObject {
+    let monitor: HealthMonitor
+    private var subscription: AnyCancellable?
+    init() {
+        monitor = HealthMonitor(provider: HealthKitProvider())
+        subscription = monitor.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
     }
+    var steps: Double? { monitor.value(.steps) }
+    var activeEnergy: Double? { monitor.value(.activeEnergy) }
+    var height: Double? { monitor.value(.height) }
+    var weight: Double? { monitor.value(.weight) }
+    var busy: Bool { monitor.busy }
+    var status: String { monitor.status }
+    func result(_ metric: HealthMetric) -> MetricResult { monitor.result(metric) }
+    func expireOldResults() { monitor.expireOldResults() }
+    func connect() async { await monitor.connect() }
+    func refresh(_ metric: HealthMetric? = nil) async { await monitor.refresh(metric) }
 }

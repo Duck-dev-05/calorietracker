@@ -158,36 +158,46 @@ struct MealPlanScreen: View {
             if meals.isEmpty { EmptyCard(title: "A day to plan", message: "Create a meal in the Meals tab, then add it to this day.", icon: "calendar") }
             ForEach(meals) { meal in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(meal.name).font(.headline)
+                    NavigationLink(destination: PlannedMealEditorScreen(existing: meal)) { Text(meal.name).font(.headline) }
                     Text("\(meal.category) · \(meal.calories) kcal").foregroundStyle(.secondary)
                     if !Calendar.current.startOfDay(for: date).isAfterToday {
                         Button("Mark as eaten") {
                             diary.consumePlan(meal.id)
                         }.buttonStyle(.bordered)
                     }
-                }.swipeActions { Button(role: .destructive) { diary.planned.removeAll { $0.id == meal.id } } label: { Label("Remove", systemImage: "trash") } }
+                }.swipeActions { Button(role: .destructive) { diary.deletePlan(meal.id) } label: { Label("Remove", systemImage: "trash") } }
             }
             Section { Text("Planned meals only count toward your diary after you mark them as eaten.").font(.footnote) }
-        }.navigationTitle("Meal planner")
+        }.modifier(FollowCurrentDay(selection: $date)).navigationTitle("Meal planner").toolbar { NavigationLink(destination: PlannedMealEditorScreen(initialDate: date)) { Image(systemName: "plus") }.accessibilityLabel("Create planned meal") }
     }
 }
 private extension Date { var isAfterToday: Bool { self > Calendar.current.startOfDay(for: Date()) } }
 struct WaterScreen: View {
     @EnvironmentObject var diary: Diary
-    private var entries: [WaterEntry] { diary.water.filter { Calendar.current.isDateInToday($0.date) }.sorted { $0.date > $1.date } }
+    @State private var date = Date()
+    @State private var adding = false
+    @State private var editing: WaterEntry?
+    private var entries: [WaterEntry] { diary.water.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }.sorted { $0.date > $1.date } }
     var body: some View {
         List {
             Section {
-                HStack { IconTile(icon: "drop.fill", color: NourishStyle.blue); Spacer(); Pill(text: "TODAY", color: NourishStyle.blue) }
-                Text("\(entries.reduce(0) { $0 + $1.milliliters }) mL").font(.system(size: 44, weight: .semibold, design: .rounded)).foregroundStyle(NourishStyle.accent)
-                Text("Water logged today").foregroundStyle(.secondary)
-                HStack { ForEach([150, 250, 500], id: \.self) { amount in Button("+\(amount) mL") { diary.water.append(WaterEntry(milliliters: amount)) }.buttonStyle(.bordered) } }
+                DatePicker("Day", selection: $date, in: ...diary.now, displayedComponents: .date)
+                Text("\(entries.reduce(0) { $0 + $1.milliliters }) mL").font(.system(.largeTitle, design: .rounded).weight(.bold))
+                if Calendar.current.isDate(date, inSameDayAs: diary.now) {
+                    HStack { ForEach([150, 250, 500], id: \.self) { amount in Button("+\(amount) mL") { diary.upsertWater(WaterEntry(date: diary.now, milliliters: amount)) }.buttonStyle(.bordered) } }
+                }
+                Button("Log a custom amount") { adding = true }
             }
-            Section("Today's drinks") {
-                if entries.isEmpty { Text("No water logged yet.").foregroundStyle(.secondary) }
-                ForEach(entries) { entry in HStack { Text(entry.date, style: .time); Spacer(); Text("\(entry.milliliters) mL") }.swipeActions { Button("Delete", role: .destructive) { diary.water.removeAll { $0.id == entry.id } } } }
+            Section("Entries for this day") {
+                if entries.isEmpty { EmptyCard(title: "No water logged", message: "Add your own amount for this day.", icon: "drop") }
+                ForEach(entries) { entry in
+                    Button { editing = entry } label: { HStack { Text(entry.date, style: .time); Spacer(); Text("\(entry.milliliters) mL"); Image(systemName: "chevron.right").font(.caption) } }.foregroundStyle(.primary)
+                }
             }
-        }.navigationTitle("Water")
+        }.navigationTitle("Water history")
+        .sheet(isPresented: $adding) { WaterEntryScreen(initialDate: date).adaptiveEntrySheet() }
+        .sheet(item: $editing) { entry in WaterEntryScreen(existing: entry).adaptiveEntrySheet() }
+        .modifier(FollowCurrentDay(selection: $date))
     }
 }
 struct ProgressScreen: View {
@@ -216,13 +226,9 @@ struct ProgressScreen: View {
                 }
                 Text("Bars appear when you set a target. An empty day means no entries, not zero food eaten.").font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Weight history") {
+            Section("Weight") {
+                NavigationLink(destination: WeightHistoryScreen()) { RouteRow(title: "Weight history", subtitle: "Review, edit and delete measurements", icon: "scalemass") }
                 Button("Log weight") { logging = true }
-                if diary.weights.isEmpty { EmptyCard(title: "See your journey", message: "Log a measurement to begin your weight history.", icon: "chart.line.uptrend.xyaxis") }
-                ForEach(diary.weights.sorted { $0.date > $1.date }) { entry in
-                    ValueRow(title: entry.date.formatted(date: .abbreviated, time: .omitted), value: String(format: "%.1f kg", entry.kilograms))
-                        .swipeActions { Button("Delete", role: .destructive) { diary.weights.removeAll { $0.id == entry.id } } }
-                }
             }
         }.navigationTitle("Your progress").sheet(isPresented: $logging) { WeightLogScreen().adaptiveEntrySheet() }
     }
@@ -243,7 +249,7 @@ struct WeightLogScreen: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save") {
                     guard let weight = NumberDraftField.value(weight, range: 20...400) else { return }
-                    if diary.logWeight(WeightEntry(date: date, kilograms: weight)) { dismiss() }
+                    if diary.logWeight(WeightEntry(date: date, kilograms: weight, source: "Manual weight log")) { dismiss() }
                 }.disabled(NumberDraftField.value(weight, range: 20...400) == nil) }
             }
         }.onAppear { if weight.isEmpty { weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? "" } }

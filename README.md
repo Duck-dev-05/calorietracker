@@ -52,3 +52,15 @@ CI runs the macOS Swift package tests before building the IPA. Tests use synthet
 The user confirmed an earlier IPA launches on their iPhone. On-device validation is still needed for new creation/edit/deletion flows, empty states, backup dialogs, Health permissions, large text, keyboard/Save positioning and layouts on each available OS generation.
 
 Deferred: live food database, barcode/photo recognition, automatic calorie recommendations, cloud synchronization and reminders.
+
+## Critical build-order pages (0.5.0)
+
+- Tap Steps/Active energy on Today, or a metric in Apple Health, for result status, last check, source/measurement date when available, individual refresh and measurement import.
+- Health reads run independently. An individual failure clears that current result without blocking other metrics. Foreground refresh does not request permission; Connect/manage access is explicit. Values expire after 15 minutes, with daily totals also invalidated by local day/timezone changes.
+- Progress → Weight history lists real dated measurements and opens an edit/delete page. Current-weight provenance is stored; deleting the chosen dated entry reconciles to the next eligible entry or an unset value. Newer explicit profile/Health values are protected from older measurements. Old profiles without provenance are labeled accordingly.
+- Water now includes date history, custom amounts, edits and confirmed deletion. Planner rows open editing, rescheduling, saved-value copying, confirmed deletion and mark-as-eaten. The plus action creates a real user-entered plan.
+- A shared minute/foreground/significant-time-change refresh drives date-sensitive screens. Screens follow the current day only while viewing Today, preserving deliberate historical/future selections. Historical timestamps are grouped in the device's current local timezone; no historical timezone is fabricated.
+
+The store remains atomic and synchronous in this iteration. Off-main-thread persistence, portion-aware food selection and the optional AI pilot are follow-up work. No provider credentials, mock Health readings or example meals are included in the app.
+
+Additional tests cover partial Health failures, permission/refresh separation, unavailable/empty results, freshness/day/timezone expiry, weight reconciliation, water/plan editing and identity rules, shared day rollover and future food rejection. Test providers exist only in the test target.

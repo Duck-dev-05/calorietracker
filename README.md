@@ -113,3 +113,10 @@ Login and Register now use the official Google sign-in button/provider. Callback
 **Activation requires your actual Google Cloud iOS OAuth client ID** for `com.personal.CalorieTracker`. Set `Config/GoogleSignIn.json` using `py scripts/configure-google.py --client-id 'ACTUAL_ID'`, or set the GitHub Actions repository variable `GOOGLE_IOS_CLIENT_ID`, then rebuild. No client secret is required. The default configuration is intentionally empty and cannot complete sign-in.
 
 See [Google setup instructions](Config/README.md). Google OAuth/Keychain must be tested on the actual TrollStore installation; CI build success is not a live login test. The journal remains one shared local diary behind Google authentication, not isolated account storage or cloud sync.
+
+
+### Version 0.10.1 — OAuth client configured
+
+The supplied Google iOS client ID is now in Config/GoogleSignIn.json. Builds generate its callback scheme automatically and verify both values in the packaged app. This supersedes the earlier empty-configuration limitation.
+
+Google Cloud currently restricts OAuth to test users: add your sign-in email under Google Auth Platform -> Audience -> Test users. Install the rebuilt IPA to verify Google sign-in/callback and Keychain persistence on the actual TrollStore device.

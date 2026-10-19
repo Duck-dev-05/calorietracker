@@ -23,6 +23,20 @@ test "$MINIMUM" = '15.0'
 ICON_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$APP/Info.plist")
 test "$ICON_NAME" = 'AppIcon'
 test -f "$APP/Assets.car"
+# Verify the public OAuth client and reversed callback made it into the built app.
+python3 - "$APP/Info.plist" <<'PYGOOGLE'
+import json, os, plistlib, sys
+from pathlib import Path
+expected = os.environ.get("GOOGLE_IOS_CLIENT_ID") or json.loads(Path("Config/GoogleSignIn.json").read_text())["iosClientID"]
+with open(sys.argv[1], "rb") as file:
+    info = plistlib.load(file)
+assert info.get("GIDClientID", "") == expected, "Built app has the wrong Google client ID"
+if expected:
+    reversed_id = ".".join(reversed(expected.split(".")))
+    schemes = [scheme for entry in info.get("CFBundleURLTypes", []) for scheme in entry.get("CFBundleURLSchemes", [])]
+    assert reversed_id in schemes, "Built app is missing the Google callback scheme"
+print("Verified Google OAuth configuration in packaged app.")
+PYGOOGLE
 # Embed only the public HealthKit entitlement. TrollStore preserves it when installing.
 ldid -SCalorieTracker/CalorieTracker.entitlements "$APP/$EXECUTABLE"
 ldid -e "$APP/$EXECUTABLE" > "$BUILD_DIR/embedded-entitlements.plist"

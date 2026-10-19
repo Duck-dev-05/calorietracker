@@ -302,3 +302,12 @@ Added public-client-ID configuration through Config/GoogleSignIn.json or the GOO
 A1 is implemented at the adapter/UI/configuration level but remains blocked on the real client ID and live validation. A2 is partial: SDK Keychain/restore/refresh/sign-out integration exists, but device persistence, account revocation/deletion and a deliberate shared-diary-versus-isolation decision remain open. Existing accounts use one shared on-device diary; no roles or cloud sync have been introduced. Future backend endpoints must independently validate Google ID tokens.
 
 The phase/status tables above describe the pre-Google 0.9.0 audit baseline. This section records the new implementation and its outstanding activation requirements; do not mark authentication live until they pass.
+
+
+## 13. Google OAuth client configured — version 0.10.1
+
+The user supplied an iOS OAuth client ID from Google Cloud. It is now saved in Config/GoogleSignIn.json; the generator derives the matching reversed callback scheme. The default build is no longer missing its client ID. IPA packaging verifies that the built Info.plist contains the configured identifier and callback.
+
+The Google Cloud screenshot states that OAuth access is restricted to test users. Add the intended Google account under Google Auth Platform -> Audience -> Test users before the phone test. Actual consent/callback, Keychain behavior on TrollStore, restoration, refresh and logout still require live device verification; configured credentials/build success are not proof of a successful login. No client secret was requested or embedded.
+
+This supersedes the missing-client-ID activation blocker in section 12. A1 now has its configuration as well as its adapter/UI implementation; live verification remains open. A2 ownership/isolation and account lifecycle follow-up remain unchanged.

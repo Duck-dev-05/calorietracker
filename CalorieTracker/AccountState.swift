@@ -38,9 +38,25 @@ struct AccessDenied: LocalizedError {
 }
 @MainActor protocol AccountProvider {
     var configured: Bool { get }
+    var supportsPassword: Bool { get }
+    var googleSignInAvailable: Bool { get }
+    var configurationMessage: String? { get }
+    func signInWithGoogle() async throws -> AccountSession
+    func restoreSession() async throws -> AccountSession?
+    func refreshSession() async throws -> AccountSession?
+    func signOut()
     func signIn(email: String, password: String) async throws -> AccountSession
     func register(name: String, email: String, password: String) async throws -> AccountSession
     func resetPassword(email: String) async throws
+}
+extension AccountProvider {
+    var supportsPassword: Bool { true }
+    var googleSignInAvailable: Bool { false }
+    var configurationMessage: String? { nil }
+    func signInWithGoogle() async throws -> AccountSession { throw AccountUnavailable() }
+    func restoreSession() async throws -> AccountSession? { nil }
+    func refreshSession() async throws -> AccountSession? { nil }
+    func signOut() { }
 }
 struct AccountUnavailable: LocalizedError {
     var errorDescription: String? { "An account service has not been connected to this build. No account was created, no email was sent and no password was stored. Sign-in is required to unlock the app." }
@@ -58,13 +74,43 @@ struct AccountUnavailable: LocalizedError {
     let provider: AccountProvider
     init(provider: AccountProvider) { self.provider = provider }
     var configured: Bool { provider.configured }
+    var supportsPassword: Bool { provider.supportsPassword }
+    var googleSignInAvailable: Bool { provider.googleSignInAvailable }
+    var configurationMessage: String? { provider.configurationMessage }
+    @Published private(set) var restorationError: String?
+    private var attemptedRestore = false
+    func signInWithGoogle() async throws {
+        guard !busy else { throw DiaryFailure.invalid("An account request is already in progress.") }
+        busy = true; defer { busy = false }
+        let generation = requestGeneration
+        let candidate = try await provider.signInWithGoogle()
+        guard generation == requestGeneration else { provider.signOut(); throw CancellationError() }
+        do { try install(candidate); restorationError = nil }
+        catch { provider.signOut(); throw error }
+    }
+    func restoreSessionIfNeeded() async {
+        guard !attemptedRestore, !busy else { return }
+        attemptedRestore = true
+        guard configured else { return }
+        busy = true; defer { busy = false }
+        let generation = requestGeneration
+        do {
+            let candidate = try await provider.restoreSession()
+            guard generation == requestGeneration else { provider.signOut(); return }
+            if let candidate { try install(candidate) }
+            restorationError = nil
+        } catch {
+            guard generation == requestGeneration else { return }
+            restorationError = "Your previous Google session could not be restored. Sign in again."
+        }
+    }
     var isAuthenticated: Bool { AccessPolicy.isAuthenticated(session) }
     func allows(_ permission: AppPermission) -> Bool { isAuthenticated }
     func require(_ permission: AppPermission) throws {
         guard isAuthenticated else { throw AccessDenied(permission: permission) }
     }
     /// Clears local claims only; a connected provider must revoke remote sessions separately.
-    func endLocalSession() { requestGeneration += 1; expiryTask?.cancel(); expiryTask = nil; session = nil }
+    func endLocalSession() { requestGeneration += 1; expiryTask?.cancel(); expiryTask = nil; session = nil; provider.signOut(); restorationError = nil }
     private func accepted(_ candidate: AccountSession) throws -> AccountSession {
         guard AccessPolicy.isAuthenticated(candidate) else { throw DiaryFailure.invalid("The account service returned an invalid or expired session.") }
         return candidate
@@ -78,11 +124,24 @@ struct AccountUnavailable: LocalizedError {
             while !Task.isCancelled {
                 guard let self, let expiry = self.session?.expiresAt else { return }
                 let remaining = expiry.timeIntervalSinceNow
-                if remaining <= 0 { self.endLocalSession(); return }
+                if remaining <= 0 {
+                    if await self.refreshExpiredSession() { return }
+                    self.endLocalSession(); return
+                }
                 do { try await Task.sleep(nanoseconds: UInt64(min(remaining, 60) * 1_000_000_000)) }
                 catch { return }
             }
         }
+    }
+    private func refreshExpiredSession() async -> Bool {
+        guard !busy else { return false }
+        busy = true; defer { busy = false }
+        let generation = requestGeneration
+        do {
+            guard let candidate = try await provider.refreshSession(), generation == requestGeneration else { return false }
+            try install(candidate)
+            return true
+        } catch { return false }
     }
     func signIn(email: String, password: String) async throws {
         guard !busy else { throw DiaryFailure.invalid("An account request is already in progress.") }

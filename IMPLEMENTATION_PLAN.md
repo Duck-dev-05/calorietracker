@@ -289,3 +289,16 @@ Explicitly outside the initial scope: subscriptions, social feeds, administrator
 - [USDA: FoodData Central API guide](https://fdc.nal.usda.gov/api-guide/)
 
 Research and document the chosen calorie-estimation method before implementing target estimates. These integration references are not validation of an unimplemented nutrition formula.
+
+
+## 12. Google sign-in implementation — version 0.10.0
+
+Provider choice is now Google Sign-In using an iOS OAuth client ID. Added official GoogleSignIn/GoogleSignInSwift 10.0.0 dependencies (iOS 15 minimum), the SDK provider, official button on Login/Register, callback forwarding, non-interactive previous-session restoration, expiry refresh and SDK sign-out. The provider does not collect a Google password or create a separate email/password account. Basic profile/email are used; no journal or Health payload is sent by this adapter.
+
+Added public-client-ID configuration through Config/GoogleSignIn.json or the GOOGLE_IOS_CLIENT_ID GitHub Actions variable. The build generator validates input and derives the callback scheme; no client secret is used. Missing/mismatched configuration cannot open a session. Configuration and provider-boundary tests cover unavailable settings, cancellation, restoration and logout.
+
+**Still blocked for live sign-in:** an actual iOS OAuth client ID for com.personal.CalorieTracker has not been supplied. The checked-in ID is empty, not a fake credential. See Config/README.md for Windows/Cloud setup. Live device/Google consent and Keychain testing remain required, especially on the fake-signed TrollStore IPA. Current SDK credential storage is not proof it works under TrollStore signing.
+
+A1 is implemented at the adapter/UI/configuration level but remains blocked on the real client ID and live validation. A2 is partial: SDK Keychain/restore/refresh/sign-out integration exists, but device persistence, account revocation/deletion and a deliberate shared-diary-versus-isolation decision remain open. Existing accounts use one shared on-device diary; no roles or cloud sync have been introduced. Future backend endpoints must independently validate Google ID tokens.
+
+The phase/status tables above describe the pre-Google 0.9.0 audit baseline. This section records the new implementation and its outstanding activation requirements; do not mark authentication live until they pass.

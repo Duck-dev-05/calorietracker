@@ -11,7 +11,8 @@ struct AccountSecurityScreen: View {
             }
             Section {
                 Text("Sign-in is required for your journal, profile, Health connection and backup tools. Signing out or an expired session locks the app without deleting your diary.")
-                Text("Account authentication is not connected in this build. A valid session must come from the account service; there is no guest bypass.")
+                Text("Google manages sign-in and stores its credentials in the device Keychain. Signing out clears Google credentials for this app, not your browser or other Google apps. It does not revoke previously granted Google access.")
+                if let message = account.configurationMessage { Text(message) }
             }.font(.footnote)
             if account.isAuthenticated { Button("Sign out", role: .destructive) { account.endLocalSession() } }
         }.navigationTitle("Account & security").navigationBarTitleDisplayMode(.inline)

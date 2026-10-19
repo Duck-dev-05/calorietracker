@@ -104,3 +104,12 @@ Launch shows the public Today welcome page and tabs without redirecting to Login
 Shared forest/ivory/lime styling, a new public welcome hero, consistent page/card/button styling, adaptive metric grids and branded Home/account/tracking/profile/onboarding pages. New logo assets are in Brand/; the full generation prompt is in Brand/README.md. Assets.xcassets includes the in-app mark and all required iPhone app icon sizes. IPA packaging checks the icon metadata and compiled catalog.
 
 Launch and authentication behavior, journal data and nutrition calculations are unchanged. Device visual checks remain necessary.
+
+
+### Version 0.10.0 — Google sign-in
+
+Login and Register now use the official Google sign-in button/provider. Callback routing, SDK Keychain restoration, expiry refresh and Google sign-out are wired to the existing private-page gate. Home still opens without forcing login. No separate Google password is collected and no user roles are introduced.
+
+**Activation requires your actual Google Cloud iOS OAuth client ID** for `com.personal.CalorieTracker`. Set `Config/GoogleSignIn.json` using `py scripts/configure-google.py --client-id 'ACTUAL_ID'`, or set the GitHub Actions repository variable `GOOGLE_IOS_CLIENT_ID`, then rebuild. No client secret is required. The default configuration is intentionally empty and cannot complete sign-in.
+
+See [Google setup instructions](Config/README.md). Google OAuth/Keychain must be tested on the actual TrollStore installation; CI build success is not a live login test. The journal remains one shared local diary behind Google authentication, not isolated account storage or cloud sync.

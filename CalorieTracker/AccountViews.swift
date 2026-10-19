@@ -15,7 +15,7 @@ private struct AccountAvailability: View {
     @EnvironmentObject var account: AccountStore
     var body: some View {
         if !account.configured {
-            Label("Account service not connected. These forms cannot sign in or create an account yet. Sign-in is required to unlock the journal.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
+            Label(account.configurationMessage ?? "Email/password authentication is not connected in this build.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
         }
     }
 }
@@ -67,7 +67,9 @@ struct LoginScreen: View {
     private var valid: Bool { AccountValidation.email(email) && !password.isEmpty }
     var body: some View {
         PageCanvas {
-            AccountHeader(title: "Welcome back.", subtitle: "Log in with your account details.")
+            AccountHeader(title: "Welcome back.", subtitle: "Your journal is a sign-in away.")
+            GoogleAccountAction()
+            if account.supportsPassword {
             Surface {
                 Text("EMAIL").font(.caption.bold()).foregroundStyle(.secondary)
                 AccountEmailField(text: $email)
@@ -79,6 +81,7 @@ struct LoginScreen: View {
                 Button(action: signIn) { HStack { if account.busy { ProgressView().tint(.white) }; Text(account.busy ? "Logging in…" : "Log in") } }.buttonStyle(PrimaryAction()).disabled(account.busy || email.isEmpty || password.isEmpty).opacity(email.isEmpty || password.isEmpty ? 0.5 : 1)
             }
             AccountAvailability()
+            }
             HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)) }.font(.subheadline).frame(maxWidth: .infinity)
         }.navigationTitle("Log in").navigationBarTitleDisplayMode(.inline).onDisappear { password = "" }
     }
@@ -102,7 +105,9 @@ struct RegisterScreen: View {
     private var valid: Bool { AccountValidation.registration(name: name, email: email, password: password, confirmation: confirmation) }
     var body: some View {
         PageCanvas {
-            AccountHeader(title: "Make space for you.", subtitle: "Create an account to securely access your journal once the account service is connected.")
+            AccountHeader(title: "Make space for you.", subtitle: "Get started with your Google account. Your journal stays on this device.")
+            GoogleAccountAction()
+            if account.supportsPassword {
             Surface {
                 SectionHeading(title: "Your account details")
                 TextField("Your name", text: $name).accessibilityLabel("Your name").textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
@@ -117,6 +122,7 @@ struct RegisterScreen: View {
                 Button(action: register) { HStack { if account.busy { ProgressView().tint(.white) }; Text(account.busy ? "Creating account…" : "Create account") } }.buttonStyle(PrimaryAction()).disabled(!valid || account.busy).opacity(valid ? 1 : 0.5)
             }
             AccountAvailability()
+            }
             NavigationLink("Review privacy & storage", destination: PrivacyScreen()).font(.footnote)
         }.navigationTitle("Register").navigationBarTitleDisplayMode(.inline).onDisappear { clearPasswords() }
     }
@@ -136,6 +142,7 @@ struct ResetPasswordScreen: View {
     var body: some View {
         PageCanvas {
             AccountHeader(title: "Let's get you back in.", subtitle: "Enter the email associated with your account.")
+            if account.supportsPassword {
             Surface {
                 AccountEmailField(text: $email)
                 if let feedback { Text(feedback).font(.footnote).foregroundStyle(.secondary) }
@@ -144,6 +151,10 @@ struct ResetPasswordScreen: View {
                 }.buttonStyle(PrimaryAction()).disabled(!AccountValidation.email(email) || account.busy)
             }
             AccountAvailability()
+            } else {
+                Surface { Text("Google manages your password. Use Google Account recovery if you cannot sign in; Nourish never asks for your Google password.").font(.subheadline); Link("Recover your Google account", destination: URL(string: "https://accounts.google.com/signin/recovery")!) }
+                GoogleAccountAction()
+            }
         }.navigationTitle("Reset password").navigationBarTitleDisplayMode(.inline)
     }
 }

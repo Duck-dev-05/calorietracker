@@ -7,3 +7,6 @@ dist/
 
 .build/
 .swiftpm/
+
+Config/GoogleInfo.generated.plist
+__pycache__/

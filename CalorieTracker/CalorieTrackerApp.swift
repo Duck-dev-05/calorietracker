@@ -1,4 +1,5 @@
 import SwiftUI
+import GoogleSignIn
 
 @main struct CalorieTrackerApp: App {
     @StateObject private var diary: Diary
@@ -6,13 +7,15 @@ import SwiftUI
     @StateObject private var account: AccountStore
     init() {
         if #unavailable(iOS 16.0) { UITableView.appearance().backgroundColor = UIColor(NourishStyle.canvas) }
-        let account = AccountStore(provider: UnconfiguredAccountProvider())
+        let account = AccountStore(provider: GoogleAccountProvider())
         _account = StateObject(wrappedValue: account)
         let diary = Diary(account: account)
         _diary = StateObject(wrappedValue: diary)
         _health = StateObject(wrappedValue: HealthService(authorized: { diary.can(.readHealth) }))
     }
     var body: some Scene {
-        WindowGroup { ContentView().environmentObject(diary).environmentObject(health).environmentObject(account) }
+        WindowGroup { ContentView().environmentObject(diary).environmentObject(health).environmentObject(account)
+                .onOpenURL { url in GIDSignIn.sharedInstance.handle(url) }
+                .task { await account.restoreSessionIfNeeded() } }
     }
 }

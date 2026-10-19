@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 for tool in xcodegen xcodebuild ldid; do
   command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
 done
+python3 scripts/configure-google.py
 xcodegen generate
 # A new output folder avoids reusing an older app or IPA after a failed build.
 BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nourish-build.XXXXXX")"

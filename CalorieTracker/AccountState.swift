@@ -159,7 +159,7 @@ struct AccountUnavailable: LocalizedError {
         busy = true; defer { busy = false }
         let generation = requestGeneration
         let candidate = try await provider.signIn(email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password)
-        guard generation == requestGeneration else { throw DiaryFailure.invalid("This account request was cancelled by ending the session.") }
+        guard generation == requestGeneration else { provider.signOut(); throw DiaryFailure.invalid("This account request was cancelled by ending the session.") }
         try install(candidate)
     }
     func register(name: String, email: String, password: String, confirmation: String) async throws {
@@ -168,7 +168,7 @@ struct AccountUnavailable: LocalizedError {
         busy = true; defer { busy = false }
         let generation = requestGeneration
         let candidate = try await provider.register(name: name.trimmingCharacters(in: .whitespacesAndNewlines), email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password)
-        guard generation == requestGeneration else { throw DiaryFailure.invalid("This account request was cancelled by ending the session.") }
+        guard generation == requestGeneration else { provider.signOut(); throw DiaryFailure.invalid("This account request was cancelled by ending the session.") }
         try install(candidate)
     }
     func resetPassword(email: String) async throws {

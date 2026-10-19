@@ -32,7 +32,15 @@ import CommonCrypto
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { return [] }
         guard status == errSecSuccess, let data = result as? Data else { throw storageError() }
-        do { return try JSONDecoder().decode([Record].self, from: data) }
+        do {
+            let records = try JSONDecoder().decode([Record].self, from: data)
+            guard Set(records.map { $0.id }).count == records.count,
+                  Set(records.map { $0.email }).count == records.count,
+                  records.allSatisfy({ $0.id.hasPrefix("local:") && !$0.name.isEmpty && $0.name.count <= 100 && AccountValidation.email($0.email) && $0.email == Self.normalized($0.email) && $0.salt.count == 32 && $0.verifier.count == 32 && (0...4).contains($0.failures) && ($0.lockedUntil?.timeIntervalSinceReferenceDate.isFinite ?? true) }) else {
+                throw storageError()
+            }
+            return records
+        }
         catch { throw DiaryFailure.invalid("The local account database could not be read. Existing accounts were preserved.") }
     }
     private func write(_ records: [Record]) throws {

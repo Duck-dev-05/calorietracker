@@ -71,7 +71,7 @@ struct LoginScreen: View {
             GoogleAccountAction()
             if account.supportsPassword {
             Surface {
-                SectionHeading(title: "Log in with email", subtitle: "Use the local account you registered on this iPhone.")
+                SectionHeading(title: "Log in with email", subtitle: "Use the local account you registered on this iPhone. All signed-in accounts access this device’s shared journal.")
                 Text("EMAIL").font(.caption.bold()).foregroundStyle(.secondary)
                 AccountEmailField(text: $email)
                 if attempted && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
@@ -110,7 +110,7 @@ struct RegisterScreen: View {
             GoogleAccountAction()
             if account.supportsPassword {
             Surface {
-                SectionHeading(title: "Create a local account", subtitle: "Available only on this iPhone. Email ownership is not verified. Password recovery and account sync are unavailable.")
+                SectionHeading(title: "Create a local account", subtitle: "Available only on this iPhone. Email ownership is not verified. Password recovery and account sync are unavailable. All accounts open the same local journal.")
                 TextField("Your name", text: $name).accessibilityLabel("Your name").textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
                 AccountEmailField(text: $email)
                 if !email.isEmpty && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }

@@ -381,3 +381,9 @@ This update is planning only. It does not change app behavior or initiate the ab
 Version 0.5.0 implements the first critical page package: Health metric detail/status and per-metric retry, independent Health queries with freshness, permission/refresh separation, shared day refresh, Weight history and entry editing/deletion with current-measurement reconciliation, Water history/custom entry editing, and Planned meal editing/rescheduling/copying. These pages use actual stored/Health data and explicit persistence operations.
 
 This is not a claim that the entire roadmap is complete. Async persistence in A4, full portion models and Choose food, target history, the archive browser and the optional AI/backend pilot remain open. Real iPhone testing of Health permissions, date changes, sources and the new editors is required after the cloud checks.
+
+## User-requested account pages — 19 October 2026
+
+Login/register were explicitly requested after the original local-only roadmap. Version 0.6.0 adds welcome, login, registration and password-reset pages, with a guest path that preserves the local diary. They use an AccountProvider boundary and a deliberately unconfigured production implementation that cannot claim account creation or authentication. No real backend or network identity service has been selected.
+
+Before enabling live accounts: configure a provider; implement token lifecycle/Keychain, verification and reset; define data isolation/migration per account and explicit guest-diary handling; implement sign-out/deletion; update privacy disclosures and add integration tests. This does not imply cloud diary sync or a configured AI backend.

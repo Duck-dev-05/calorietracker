@@ -64,3 +64,13 @@ Deferred: live food database, barcode/photo recognition, automatic calorie recom
 The store remains atomic and synchronous in this iteration. Off-main-thread persistence, portion-aware food selection and the optional AI pilot are follow-up work. No provider credentials, mock Health readings or example meals are included in the app.
 
 Additional tests cover partial Health failures, permission/refresh separation, unavailable/empty results, freshness/day/timezone expiry, weight reconciliation, water/plan editing and identity rules, shared day rollover and future food rejection. Test providers exist only in the test target.
+
+## Login and registration pages (0.6.0)
+
+A welcome screen offers Log in, Create account and Continue without an account. Login includes email/password fields, visibility control and a password-reset link. Registration includes name, email, a matching 15–128-character password and confirmation. The UI provides loading/error states and password autofill hints. Profile → Account and Settings → Login & registration reopen these pages.
+
+**Authentication is not connected.** No backend, identity-provider project, endpoint or client configuration was supplied. The included UnconfiguredAccountProvider always returns a clear unavailable error: it does not create accounts, sign in, send mail, retain passwords or fabricate a session. Passwords live only in form state and are cleared when leaving the screen. Continue without an account keeps the existing local diary and setup state intact.
+
+To enable real accounts, select/configure an identity provider or backend, implement AccountProvider, align validation with its policy, securely persist actual tokens using Keychain, and define account switching/data-isolation, verification, reset, sign-out and deletion behavior. Do not embed provider secrets in the IPA. Existing local diaries must not silently become shared or uploaded when authentication is connected. The current account scaffolding intentionally provides no cloud sync or real-session persistence.
+
+Device checks: guest continuation reaches existing diary/setup, Profile and Settings links work, secure-field visibility/autofill and keyboard behavior are usable, malformed email/mismatched password errors are readable, and service-unavailable submissions leave the diary unchanged.

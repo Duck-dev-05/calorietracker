@@ -6,15 +6,19 @@ let mealCategories = ["Breakfast", "Lunch", "Dinner", "Snacks"]
 struct ContentView: View {
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var health: HealthService
+    @EnvironmentObject var account: AccountStore
     @Environment(\.scenePhase) private var scenePhase
     private let dayTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     @AppStorage("appearance") private var appearance = "System"
+    @AppStorage("accountChoiceMade") private var accountChoiceMade = false
     @AppStorage("onboardingComplete") private var onboarded = false
     @AppStorage("healthEnabled") private var healthEnabled = false
     var body: some View {
         Group {
             if diary.storageBlocked {
                 AdaptiveNavigation { StorageRecoveryScreen() }
+            } else if !accountChoiceMade && account.session == nil {
+                AdaptiveNavigation { AccountWelcomeScreen() }
             } else if onboarded {
                 TabView {
                     AdaptiveNavigation { DashboardView() }.tabItem { Label("Today", systemImage: "house.fill") }

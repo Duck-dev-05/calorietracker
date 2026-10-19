@@ -2,11 +2,11 @@ import SwiftUI
 
 /// Shared visual vocabulary with version-aware presentation and an iOS 15 baseline.
 enum NourishStyle {
-    static let forest = Color(red: 0.10, green: 0.24, blue: 0.19)
-    static let lime = Color(red: 0.81, green: 0.91, blue: 0.63)
-    static let canvas = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.055, green: 0.075, blue: 0.065, alpha: 1) : UIColor(red: 0.97, green: 0.965, blue: 0.94, alpha: 1) })
-    static let surface = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.095, green: 0.12, blue: 0.105, alpha: 1) : .white })
-    static let accent = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.72, green: 0.88, blue: 0.64, alpha: 1) : UIColor(red: 0.14, green: 0.34, blue: 0.25, alpha: 1) })
+    static let forest = Color(red: 0.08, green: 0.20, blue: 0.23)
+    static let lime = Color(red: 0.64, green: 0.94, blue: 0.81)
+    static let canvas = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.045, green: 0.065, blue: 0.08, alpha: 1) : UIColor(red: 0.95, green: 0.965, blue: 0.97, alpha: 1) })
+    static let surface = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.075, green: 0.105, blue: 0.125, alpha: 1) : .white })
+    static let accent = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.57, green: 0.89, blue: 0.78, alpha: 1) : UIColor(red: 0.06, green: 0.36, blue: 0.36, alpha: 1) })
     static let peach = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.96, green: 0.70, blue: 0.48, alpha: 1) : UIColor(red: 0.65, green: 0.32, blue: 0.13, alpha: 1) })
     static let blue = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.55, green: 0.77, blue: 0.91, alpha: 1) : UIColor(red: 0.18, green: 0.42, blue: 0.57, alpha: 1) })
 }
@@ -30,9 +30,9 @@ struct PageCanvas<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) { content }
-                .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 32)
-                .frame(maxWidth: 680).frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 24) { content }
+                .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 40)
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
         }.background(NourishStyle.canvas.ignoresSafeArea()).modifier(AdaptiveScroll())
     }
 }
@@ -40,10 +40,10 @@ struct Surface<Content: View>: View {
     private let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) { content }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 16) { content }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .background(NourishStyle.surface, in: RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous).stroke(NourishStyle.accent.opacity(0.08), lineWidth: 1))
-            .shadow(color: .black.opacity(0.025), radius: 14, x: 0, y: 5)
+            .overlay(RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous).stroke(NourishStyle.accent.opacity(0.12), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.035), radius: 18, x: 0, y: 6)
     }
 }
 struct PageIntro: View {
@@ -52,8 +52,8 @@ struct PageIntro: View {
     let detail: String
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(eyebrow.uppercased()).font(.caption.weight(.semibold)).tracking(1.6).foregroundStyle(NourishStyle.accent)
-            Text(title).font(.system(.largeTitle, design: .rounded).weight(.bold)).tracking(-0.8).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) { Capsule().fill(NourishStyle.accent).frame(width: 20, height: 3); Text(eyebrow.uppercased()).font(.caption2.weight(.bold)).tracking(1.8).foregroundStyle(NourishStyle.accent) }
+            Text(title).font(.system(.largeTitle, design: .default).weight(.bold)).tracking(-1).fixedSize(horizontal: false, vertical: true)
             Text(detail).font(.subheadline).foregroundStyle(.secondary).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
         }.padding(.vertical, 8)
     }
@@ -63,7 +63,7 @@ struct SectionHeading: View {
     var subtitle: String? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(.title3, design: .rounded).weight(.bold))
+            Text(title).font(.system(.headline, design: .default).weight(.bold))
             if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
         }
     }
@@ -73,7 +73,7 @@ struct IconTile: View {
     var color: Color = NourishStyle.accent
     var body: some View {
         Image(systemName: icon).font(.system(size: 20, weight: .medium)).foregroundStyle(color)
-            .frame(width: 46, height: 46).background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: 15)).accessibilityHidden(true)
+            .frame(width: 44, height: 44).background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 14)).accessibilityHidden(true)
     }
 }
 struct RouteRow: View {
@@ -90,7 +90,7 @@ struct RouteRow: View {
                 Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)
-            if showsChevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary).accessibilityHidden(true) }
+            if showsChevron { Image(systemName: "arrow.up.right").font(.caption.weight(.semibold)).foregroundStyle(color).frame(width: 28, height: 28).background(color.opacity(0.07), in: Circle()).accessibilityHidden(true) }
         }.frame(minHeight: 58).contentShape(Rectangle())
     }
 }
@@ -104,7 +104,7 @@ struct PrimaryAction: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.headline).padding(.vertical, 17).frame(maxWidth: .infinity).frame(minHeight: 52)
-            .foregroundStyle(Color.white).background(NourishStyle.forest, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .foregroundStyle(Color.white).background(NourishStyle.forest, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .opacity(enabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
     }
@@ -112,7 +112,7 @@ struct PrimaryAction: ButtonStyle {
 struct SecondaryAction: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.subheadline.weight(.semibold)).padding(.vertical, 16).frame(maxWidth: .infinity).frame(minHeight: 50)
-            .foregroundStyle(NourishStyle.accent).background(NourishStyle.accent.opacity(configuration.isPressed ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 18))
+            .foregroundStyle(NourishStyle.accent).background(NourishStyle.accent.opacity(configuration.isPressed ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 }
 struct CalorieRing: View {
@@ -140,5 +140,20 @@ struct MealArtwork: View {
             Circle().fill(NourishStyle.surface).frame(width: 78, height: 78)
             Image(systemName: meal.vegetarian ? "leaf.fill" : "fork.knife").font(.system(size: 32, weight: .light)).foregroundStyle(meal.vegetarian ? NourishStyle.accent : NourishStyle.peach)
         }.frame(height: 124).accessibilityHidden(true)
+    }
+}
+
+/// Compact destinations used by the dashboard; labels wrap with Dynamic Type.
+struct QuickActionTile: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    var color: Color = NourishStyle.accent
+    var body: some View {
+        Surface {
+            HStack { IconTile(icon: icon, color: color); Spacer(); Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary) }
+            Text(title).font(.headline).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+            Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }.frame(maxHeight: .infinity, alignment: .top)
     }
 }

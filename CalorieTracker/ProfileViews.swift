@@ -11,8 +11,7 @@ struct ProfileScreen: View {
     }
     private var signedInProfile: some View {
         PageCanvas {
-            BrandLockup()
-            PageIntro(eyebrow: "Your space", title: "Wellness, your way.", detail: "A plan that belongs to you.")
+            PageIntro(eyebrow: "Your space", title: "Made for you.", detail: "Your account, preferences and everyday goals.")
             Surface {
                 HStack(spacing: 16) {
                     Text(account.session?.initials ?? "").font(.system(.title2, design: .rounded).weight(.bold))
@@ -42,14 +41,16 @@ struct ProfileScreen: View {
                     RouteRow(title: "Account", subtitle: account.session?.email ?? "Sign in to unlock your journal", icon: "person.crop.circle.badge.checkmark")
                 }.buttonStyle(.plain)
             }
-            SectionHeading(title: "Make it personal")
-            Surface {
-                NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Your measurements, age and activity", icon: "person.crop.circle") }.buttonStyle(.plain)
-                Divider()
-                NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal.isEmpty ? "Choose your direction" : diary.profile.goal, icon: "target") }.buttonStyle(.plain)
-                Divider()
-                NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Choose your food style" : diary.profile.preferences, icon: "fork.knife") }.buttonStyle(.plain)
-            }
+            SectionHeading(title: "Your wellness settings", subtitle: "Open a section to review or update your details")
+            NavigationLink(destination: PersonalDetailsScreen()) {
+                Surface { RouteRow(title: "Personal details", subtitle: "Measurements, age and activity", icon: "person.crop.circle") }
+            }.buttonStyle(.plain)
+            NavigationLink(destination: GoalsScreen()) {
+                Surface { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal.isEmpty ? "Choose your direction" : diary.profile.goal, icon: "target", color: NourishStyle.peach) }
+            }.buttonStyle(.plain)
+            NavigationLink(destination: PreferencesScreen()) {
+                Surface { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Choose your food style" : diary.profile.preferences, icon: "fork.knife", color: NourishStyle.blue) }
+            }.buttonStyle(.plain)
             SectionHeading(title: "Connected to your day")
             Surface {
                 NavigationLink(destination: HealthScreen()) { RouteRow(title: "Apple Health", subtitle: "Activity, height and weight", icon: "heart.fill", color: .pink) }.buttonStyle(.plain)
@@ -127,8 +128,8 @@ struct PrivacyScreen: View {
         List {
             Section("Stored on your device") { Text("Your profile, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
             Section("Apple Health") { Text("Nourish requests read access to height, body mass, steps and active energy only when you choose to connect. Health results are displayed in memory. Measurements are saved to your profile only when you import them.") }
-            Section("Google sign-in") { Text("Google receives the OAuth sign-in request and shares basic profile information and email with Nourish. Google credentials are managed by its SDK and Keychain; they are not included in journal backups. The app does not send food or Apple Health records to Google. No separate Nourish password account is created. Your journal remains on this device; signing in does not provide cloud sync or separate journals for different accounts.") }
-            Section("Network & accounts") { Text("No account, advertising, analytics or server connection is used by the app. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
+            Section("Google sign-in") { Text("Google receives the OAuth sign-in request and shares basic profile information and email with Nourish. Google credentials are managed by its SDK and Keychain; they are not included in journal backups. The app does not send food or Apple Health records to Google. Local email/password accounts are also available and stay in this installation’s private Keychain. Your journal remains on this device; signing in does not provide cloud sync or separate journals for different accounts.") }
+            Section("Network & accounts") { Text("Google sign-in connects to Google. Local registration and login work on this device without a server; email ownership is not verified and password recovery is unavailable. No advertising or analytics service is integrated. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
             Section("Backups & recovery") { NavigationLink("Open backup & restore", destination: BackupScreen()); Text("Before replacing or resetting a diary, Nourish preserves the old file on this device. Keep an exported copy before uninstalling the app.") }
             Section("Managing entries") { Text("Swipe left on diary, weight, water or planned meal entries to remove them. Food details also let you edit or delete a food entry. Health access can be revoked in Apple Health.") }
         }.navigationTitle("Privacy & storage")

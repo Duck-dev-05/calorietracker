@@ -85,7 +85,7 @@ struct MealsView: View {
     var body: some View {
         PageCanvas {
             BrandLockup()
-            PageIntro(eyebrow: "Your meals", title: "A collection of your own.", detail: "Save meals you actually eat, with ingredients and calories you provide.")
+            PageIntro(eyebrow: "Your meals", title: "Good food. On repeat.", detail: "Your saved meals, ready to log or plan for later.")
             Button { adding = true } label: { Label("Create a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
             NavigationLink(destination: MealPlanScreen()) { Surface { RouteRow(title: "Your meal planner", subtitle: "Plan from your saved meals", icon: "calendar") } }.buttonStyle(.plain)
             if !diary.savedMeals.isEmpty {
@@ -97,9 +97,16 @@ struct MealsView: View {
             ForEach(meals) { meal in
                 NavigationLink(destination: MealDetailScreen(meal: meal)) {
                     Surface {
-                        MealArtwork(meal: meal)
-                        Text(meal.name).font(.headline).foregroundStyle(.primary)
-                        Text(meal.detail).font(.subheadline).foregroundStyle(.secondary)
+                        HStack(alignment: .top, spacing: 16) {
+                            IconTile(icon: meal.vegetarian ? "leaf.fill" : "fork.knife", color: meal.vegetarian ? NourishStyle.accent : NourishStyle.peach)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(meal.name).font(.headline).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                                Text(meal.detail).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Divider()
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 130))], alignment: .leading) { Pill(text: "\(meal.calories) kcal / serving"); if meal.vegetarian { Pill(text: "Vegetarian") } }
                     }
                 }.buttonStyle(.plain)
@@ -210,32 +217,41 @@ struct ProgressScreen: View {
     private var days: [Date] { (0..<7).reversed().compactMap { Calendar.current.date(byAdding: .day, value: -$0, to: Date()) } }
     private func total(_ date: Date) -> Int { diary.foods.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }.reduce(0) { $0 + $1.calories } }
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    BrandLockup()
-                    Text("ONE DAY AT A TIME").font(.caption2.bold()).tracking(2).foregroundStyle(NourishStyle.accent)
-                    Text(diary.foods.isEmpty ? "Your progress starts here." : "Look how far you've come.").font(.system(.title2, design: .rounded).weight(.bold))
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("\(days.filter { total($0) > 0 }.count)").font(.system(size: 44, weight: .semibold, design: .rounded))
-                        Text("of 7 days with food logged").font(.subheadline).foregroundStyle(.secondary)
+        PageCanvas {
+            PageIntro(eyebrow: "Your progress", title: "See your rhythm.", detail: "A week of the meals and measurements you recorded.")
+            Surface {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("CONSISTENCY").font(.caption2.bold()).tracking(1.5).foregroundStyle(NourishStyle.accent)
+                        Text("\(days.filter { total($0) > 0 }.count) of 7 days").font(.system(.largeTitle, design: .rounded).weight(.bold))
+                        Text("with food logged this week").font(.subheadline).foregroundStyle(.secondary)
                     }
-                }.padding(.vertical, 12)
-            }
-            Section("Last 7 days · calories logged") {
-                ForEach(days, id: \.self) { date in
-                    VStack(alignment: .leading, spacing: 6) {
-                        ValueRow(title: date.formatted(.dateTime.weekday(.abbreviated).day()), value: "\(total(date)) kcal")
-                        if let target = diary.profile.target { ProgressView(value: min(Double(total(date)) / max(1, target), 1)).tint(nourishGreen) }
-                    }.padding(.vertical, 4)
+                    Spacer(); IconTile(icon: "calendar")
                 }
-                Text("Bars appear when you set a target. An empty day means no entries, not zero food eaten.").font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Weight") {
-                NavigationLink(destination: WeightHistoryScreen()) { RouteRow(title: "Weight history", subtitle: "Review, edit and delete measurements", icon: "scalemass") }
-                Button("Log weight") { logging = true }
+            SectionHeading(title: "Your last seven days", subtitle: "Calories from your logged servings")
+            Surface {
+                ForEach(days, id: \.self) { date in
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(date.formatted(.dateTime.weekday(.abbreviated).day())).font(.subheadline.weight(.medium))
+                            if Calendar.current.isDateInToday(date) { Pill(text: "Today") }
+                            Spacer()
+                            Text(total(date) > 0 ? "\(total(date)) kcal" : "No entries").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        if let target = diary.profile.target { ProgressView(value: min(Double(total(date)) / max(1, target), 1)).tint(nourishGreen) }
+                    }.padding(.vertical, 6)
+                    if date != days.last { Divider() }
+                }
+                Text("Bars use your current manual target. An empty day means no entries, not zero food eaten.").font(.caption).foregroundStyle(.secondary)
             }
-        }.navigationTitle("Your progress").sheet(isPresented: $logging) { WeightLogScreen().adaptiveEntrySheet() }
+            SectionHeading(title: "Beyond the numbers")
+            NavigationLink(destination: WeightHistoryScreen()) {
+                Surface { RouteRow(title: "Weight history", subtitle: "Review your recorded measurements", icon: "scalemass", color: NourishStyle.blue) }
+            }.buttonStyle(.plain)
+            Button { logging = true } label: { Label("Log a measurement", systemImage: "plus") }.buttonStyle(PrimaryAction())
+        }.navigationTitle("Progress").navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $logging) { WeightLogScreen().adaptiveEntrySheet() }
     }
 }
 struct WeightLogScreen: View {

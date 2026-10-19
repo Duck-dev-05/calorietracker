@@ -67,24 +67,35 @@ struct ValueRow: View {
 struct DashboardView: View {
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var health: HealthService
+    @EnvironmentObject var account: AccountStore
     @State private var adding = false
     private var water: Int { diary.water.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.milliliters } }
     var body: some View {
         PageCanvas {
-            BrandLockup()
-            PageIntro(eyebrow: diary.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), title: diary.profile.name.flatMap { $0.isEmpty ? nil : "Hello, \($0)." } ?? "A little more balance.", detail: "Small choices. A healthier everyday.")
+            HStack { BrandLockup(); Spacer(); Pill(text: "Daily overview") }
+            PageIntro(eyebrow: diary.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), title: account.session.map { "Hello, \($0.displayName)." } ?? "Your day, in balance.", detail: "Your food, movement and next steps in one place.")
             VStack(spacing: 20) {
                 HStack { Label("Daily nourishment", systemImage: "sparkles").font(.subheadline.weight(.semibold)); Spacer(); Text("TODAY").font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.7)) }
-                CalorieRing(eaten: diary.consumed, target: diary.profile.target).frame(maxWidth: .infinity)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), alignment: .center)], spacing: 20) {
+                    CalorieRing(eaten: diary.consumed, target: diary.profile.target).frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Make today\nfeel good.").font(.system(.title, design: .default).weight(.bold))
+                        Text("Log your food as you go. Your remaining calories update with each entry.").font(.subheadline).foregroundStyle(.white.opacity(0.8))
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
                 HStack {
                     balance("EATEN", "\(diary.consumed)")
                     Spacer(); Rectangle().fill(.white.opacity(0.2)).frame(width: 1, height: 36); Spacer()
                     balance("DAILY TARGET", diary.profile.target.map { "\(Int($0))" } ?? "—")
                 }
                 if let remaining = diary.remaining, remaining < 0 { Text("\(-remaining) kcal above today's target").font(.footnote).foregroundStyle(.white.opacity(0.85)) }
-            }.padding(24).foregroundStyle(.white).background(LinearGradient(colors: [NourishStyle.forest, Color(red: 0.07, green: 0.19, blue: 0.15)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 30))
+            }.padding(24).foregroundStyle(.white).background(LinearGradient(colors: [NourishStyle.forest, Color(red: 0.06, green: 0.28, blue: 0.30)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 30))
             if diary.profile.target == nil { NavigationLink(destination: GoalsScreen()) { Label("Set your calorie target", systemImage: "target") } }
-            Button { adding = true } label: { Label("Log a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
+            SectionHeading(title: "A little action, a better day")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 12) {
+                Button { adding = true } label: { QuickActionTile(title: "Log food", subtitle: "Record what you ate", icon: "plus") }.buttonStyle(.plain)
+                NavigationLink(destination: WaterScreen()) { QuickActionTile(title: "Add water", subtitle: "Keep hydration in view", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
+            }
             SectionHeading(title: "Your daily rhythm", subtitle: "Movement and hydration, at a glance")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], alignment: .leading, spacing: 12) {
                 NavigationLink(destination: HealthMetricScreen(metric: .steps)) { stat("Steps", health.steps.map { Int($0).formatted() } ?? "—", "figure.walk", NourishStyle.accent) }.buttonStyle(.plain)
@@ -124,7 +135,7 @@ struct DiaryView: View {
     var body: some View {
         List {
             Section {
-                BrandLockup().padding(.vertical, 8)
+                PageIntro(eyebrow: "Food journal", title: "Every meal, in view.", detail: "Choose a day to review your food and servings.").padding(.vertical, 8)
                 DatePicker("Day", selection: $date, in: ...Date(), displayedComponents: .date)
                 HStack {
                     VStack(alignment: .leading, spacing: 4) { Text("DAILY INTAKE").font(.caption2.bold()).tracking(1.5).foregroundStyle(.secondary); Text("\(entries.reduce(0) { $0 + $1.calories }) kcal").font(.system(.title, design: .rounded).weight(.bold)) }
@@ -133,11 +144,17 @@ struct DiaryView: View {
             }
             if entries.isEmpty { EmptyCard(title: "Your diary is ready", message: "Add a food or a meal for this day.", icon: "book") }
             ForEach(mealCategories, id: \.self) { category in
-                Section(category) {
+                Section {
+
                     ForEach(entries.filter { ($0.category ?? "Snacks") == category }) { food in
                         NavigationLink(destination: FoodDetailScreen(food: food)) { HStack(spacing: 12) { IconTile(icon: "fork.knife"); VStack(alignment: .leading, spacing: 4) { Text(food.name).font(.headline); Text(food.date, style: .time).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(food.calories)").font(.system(.body, design: .rounded).weight(.semibold)) } .padding(.vertical, 4) }
                             .swipeActions { Button(role: .destructive) { diary.deleteFood(food.id) } label: { Label("Delete", systemImage: "trash") } }
                     }
+                    if !entries.isEmpty && entries.filter({ ($0.category ?? "Snacks") == category }).isEmpty {
+                        Text("Nothing logged for this meal.").font(.caption).foregroundStyle(.secondary).padding(.vertical, 6)
+                    }
+                } header: {
+                    HStack { Text(category); Spacer(); Text("\(entries.filter { ($0.category ?? "Snacks") == category }.reduce(0) { $0 + $1.calories }) kcal") }
                 }
             }
         }.listStyle(.insetGrouped).navigationTitle("Food diary").toolbar { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Add food") }

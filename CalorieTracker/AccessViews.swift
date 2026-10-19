@@ -38,10 +38,10 @@ struct VisitorHomeScreen: View {
         PageCanvas {
             BrandLockup().padding(.vertical, 8)
             VStack(alignment: .leading, spacing: 22) {
-                HStack { Text("A LITTLE MORE BALANCE").font(.caption.weight(.semibold)).tracking(1.5); Spacer(); Image(systemName: "sun.max") }.foregroundStyle(NourishStyle.lime)
-                Text("Good habits.\nYour own pace.").font(.system(.largeTitle, design: .rounded).weight(.bold)).tracking(-0.8).fixedSize(horizontal: false, vertical: true)
+                HStack { Text("WELCOME TO NOURISH").font(.caption.weight(.semibold)).tracking(1.5); Spacer(); Image(systemName: "sun.max") }.foregroundStyle(NourishStyle.lime)
+                Text("Your day.\nA healthier rhythm.").font(.system(.largeTitle, design: .rounded).weight(.bold)).tracking(-0.8).fixedSize(horizontal: false, vertical: true)
                 Text("Make room for meals, movement and a healthier everyday.").font(.subheadline).lineSpacing(3).foregroundStyle(Color.white.opacity(0.8))
-                BrandMark(size: 120).frame(maxWidth: .infinity).padding(.vertical, 12)
+                HStack(spacing: 12) { Image(systemName: "fork.knife"); Image(systemName: "drop.fill"); Image(systemName: "figure.walk"); Spacer(); BrandMark(size: 64) }.font(.title2).foregroundStyle(NourishStyle.lime).padding(.vertical, 12)
                 Label("A personal journal, made for you", systemImage: "lock.shield").font(.caption).foregroundStyle(Color.white.opacity(0.8))
             }.padding(26).foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading).background(NourishStyle.forest, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
             SectionHeading(title: "Meet your daily rhythm", subtitle: "Simple tools for the things that add up.")

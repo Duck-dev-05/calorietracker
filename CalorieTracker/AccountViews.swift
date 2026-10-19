@@ -5,8 +5,8 @@ private struct AccountHeader: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            BrandLockup().padding(.bottom, 16)
-            Text(title).font(.system(.largeTitle, design: .rounded).weight(.bold)).fixedSize(horizontal: false, vertical: true)
+            HStack { BrandLockup(); Spacer(); Pill(text: "Your journal") }.padding(.bottom, 8)
+            Text(title).font(.system(.largeTitle, design: .default).weight(.bold)).tracking(-1).fixedSize(horizontal: false, vertical: true)
             Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
         }.padding(.vertical, 10)
     }
@@ -52,6 +52,8 @@ struct AccountWelcomeScreen: View {
                 NavigationLink("Create an account", destination: RegisterScreen()).buttonStyle(SecondaryAction())
                 AccountAvailability()
             }
+            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR CONTINUE WITH").font(.caption2.weight(.semibold)).tracking(1).fixedSize(); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
+            GoogleAccountAction()
             Label("Your existing local diary stays on this device.", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
             NavigationLink("Privacy & storage", destination: PrivacyScreen()).font(.footnote)
         }.navigationTitle("Welcome").navigationBarTitleDisplayMode(.inline)
@@ -68,7 +70,6 @@ struct LoginScreen: View {
     var body: some View {
         PageCanvas {
             AccountHeader(title: "Welcome back.", subtitle: "Your journal is a sign-in away.")
-            GoogleAccountAction()
             if account.supportsPassword {
             Surface {
                 SectionHeading(title: "Log in with email", subtitle: "Use the local account you registered on this iPhone. All signed-in accounts access this device’s shared journal.")
@@ -83,6 +84,8 @@ struct LoginScreen: View {
             }
             AccountAvailability()
             }
+            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR CONTINUE WITH").font(.caption2.weight(.semibold)).tracking(1).fixedSize(); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
+            GoogleAccountAction()
             HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)) }.font(.subheadline).frame(maxWidth: .infinity)
         }.navigationTitle("Log in").navigationBarTitleDisplayMode(.inline).onDisappear { password = "" }
     }
@@ -107,7 +110,6 @@ struct RegisterScreen: View {
     var body: some View {
         PageCanvas {
             AccountHeader(title: "Make space for you.", subtitle: "Create an account on this iPhone or continue with Google. Your journal stays on this device.")
-            GoogleAccountAction()
             if account.supportsPassword {
             Surface {
                 SectionHeading(title: "Create a local account", subtitle: "Available only on this iPhone. Email ownership is not verified. Password recovery and account sync are unavailable. All accounts open the same local journal.")
@@ -124,6 +126,8 @@ struct RegisterScreen: View {
             }
             AccountAvailability()
             }
+            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR CONTINUE WITH").font(.caption2.weight(.semibold)).tracking(1).fixedSize(); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
+            GoogleAccountAction()
             NavigationLink("Review privacy & storage", destination: PrivacyScreen()).font(.footnote)
         }.navigationTitle("Register").navigationBarTitleDisplayMode(.inline).onDisappear { clearPasswords() }
     }

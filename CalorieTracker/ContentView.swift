@@ -28,7 +28,7 @@ struct ContentView: View {
                     AdaptiveNavigation { SignInRequired { MealsView() } }.tabItem { Label("Meals", systemImage: "fork.knife") }
                     AdaptiveNavigation { SignInRequired { ProgressScreen() } }.tabItem { Label("Progress", systemImage: "chart.bar.fill") }
                     AdaptiveNavigation { ProfileScreen() }.tabItem { Label("You", systemImage: "person.crop.circle") }
-                }.modifier(AdaptiveTabs())
+                }.modifier(AdaptiveTabs()).id(account.isAuthenticated)
             }
         }.tint(nourishGreen)
         .preferredColorScheme(appearance == "System" ? nil : (appearance == "Dark" ? .dark : .light))

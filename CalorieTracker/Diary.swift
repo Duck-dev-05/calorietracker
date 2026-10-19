@@ -259,6 +259,12 @@ enum DiaryFailure: LocalizedError {
         guard let url = lastArchiveURL else { throw DiaryFailure.invalid("No recovery file is available.") }
         return try Data(contentsOf: url)
     }
+    private func archiveOriginal() throws {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let archive = url.deletingLastPathComponent().appendingPathComponent("Recovery", isDirectory: true).appendingPathComponent("diary-before-replace-\(UUID().uuidString).json")
+        try Self.writeFile(Data(contentsOf: url), archive)
+        lastArchiveURL = archive
+    }
     @discardableResult func resetJournal() -> Bool {
         var empty = DiarySnapshot.empty
         empty.ownerAccountID = storedSnapshot.ownerAccountID

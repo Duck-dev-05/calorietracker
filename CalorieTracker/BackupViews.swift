@@ -26,12 +26,12 @@ struct BackupScreen: View {
             Surface {
                 SectionHeading(title: "Export your journal", subtitle: "Profile, foods, saved meals, water, weights and plans")
                 ValueRow(title: "Entries on this device", value: "\(diary.snapshot.entryCount)")
-                Button { exportCurrent() } label: { Label("Save a backup to Files", systemImage: "square.and.arrow.up") }.buttonStyle(PrimaryAction()).disabled(diary.storageBlocked)
+                Button { exportCurrent() } label: { Label("Save a backup to Files", systemImage: "square.and.arrow.up") }.buttonStyle(PrimaryAction()).disabled(diary.storageBlocked || !diary.can(.exportJournal))
                 Text("Your backup contains personal information and is not encrypted by Nourish. Choose a storage location you trust. App appearance and Health permissions are not included.").font(.footnote).foregroundStyle(.secondary)
             }
             Surface {
                 SectionHeading(title: "Restore a backup", subtitle: "Choose a Nourish JSON file, up to 10 MB")
-                Button { importing = true } label: { Label("Choose backup", systemImage: "folder") }.buttonStyle(.bordered)
+                Button { importing = true } label: { Label("Choose backup", systemImage: "folder") }.buttonStyle(.bordered).disabled(!diary.can(.restoreJournal))
                 if let preview {
                     Divider()
                     Text(selectedName).font(.headline).lineLimit(2)
@@ -40,7 +40,7 @@ struct BackupScreen: View {
                     ValueRow(title: "Water / weights / plans", value: "\(preview.water?.count ?? 0) / \(preview.weights?.count ?? 0) / \(preview.planned?.count ?? 0)")
                     ValueRow(title: "Profile", value: preview.profile.name ?? "Unnamed")
                     Text("Restoring replaces your current journal. A recovery copy of the existing file is saved on this device first; entries are not merged.").font(.footnote).foregroundStyle(.secondary)
-                    Button("Replace journal with this backup", role: .destructive) { confirmRestore = true }.buttonStyle(.bordered)
+                    Button("Replace journal with this backup", role: .destructive) { confirmRestore = true }.buttonStyle(.bordered).disabled(!diary.can(.restoreJournal))
                     Button("Cancel selection") { self.preview = nil }
                 }
             }
@@ -49,7 +49,7 @@ struct BackupScreen: View {
                     SectionHeading(title: "Before your last replacement")
                     Text("The previous file was preserved on this device. Export it before uninstalling the app.").font(.footnote).foregroundStyle(.secondary)
                     Button("Export previous file") {
-                        do { guard let url = diary.lastArchiveURL else { return }; document = DiaryDocument(data: try Data(contentsOf: url)); exporting = true }
+                        do { document = DiaryDocument(data: try diary.archivedData()); exporting = true }
                         catch { message = error.localizedDescription }
                     }
                 }
@@ -109,7 +109,7 @@ struct StorageRecoveryScreen: View {
             Surface {
                 SectionHeading(title: "Start a new journal")
                 Text("Use this only if retry and restore cannot help. The original file is archived first. If archiving fails, the journal is not reset.").font(.footnote).foregroundStyle(.secondary)
-                Button("Archive original and start fresh", role: .destructive) { confirmReset = true }
+                Button("Archive original and start fresh", role: .destructive) { confirmReset = true }.disabled(!diary.can(.restoreJournal))
             }
             if let message { Text(message).font(.subheadline).foregroundStyle(.secondary) }
         }.navigationTitle("Recover journal").navigationBarTitleDisplayMode(.inline)
@@ -117,7 +117,7 @@ struct StorageRecoveryScreen: View {
             switch result { case .success: message = "Original file exported."; case .failure(let error): message = error.localizedDescription }
         }
         .alert("Start a new journal?", isPresented: $confirmReset) {
-            Button("Archive and reset", role: .destructive) { if !diary.replace(with: .empty) { message = diary.storageError } }
+            Button("Archive and reset", role: .destructive) { if !diary.resetJournal() { message = diary.storageError } }
             Button("Cancel", role: .cancel) { }
         } message: { Text("The original file will be kept in a recovery copy. Your current profile and journal will be replaced with an empty journal.") }
     }

@@ -5,7 +5,7 @@ let package = Package(
     platforms: [.macOS(.v12)],
     products: [.library(name: "DiaryCore", targets: ["DiaryCore"])],
     targets: [
-        .target(name: "DiaryCore", path: "CalorieTracker", exclude: ["NutritionViews.swift","AdaptiveInterface.swift", "BackupViews.swift", "CalorieTrackerApp.swift", "ContentView.swift", "DesignSystem.swift", "HealthService.swift", "MealAndProgressViews.swift", "NumberDraftField.swift", "ProfileViews.swift", "PersonalizationViews.swift", "CriticalViews.swift", "AccountViews.swift", "CalorieTracker.entitlements"], sources: ["Nutrition.swift", "Models.swift", "Diary.swift", "HealthState.swift", "AccountState.swift"]),
+        .target(name: "DiaryCore", path: "CalorieTracker", exclude: ["AccessViews.swift","NutritionViews.swift","AdaptiveInterface.swift", "BackupViews.swift", "CalorieTrackerApp.swift", "ContentView.swift", "DesignSystem.swift", "HealthService.swift", "MealAndProgressViews.swift", "NumberDraftField.swift", "ProfileViews.swift", "PersonalizationViews.swift", "CriticalViews.swift", "AccountViews.swift", "CalorieTracker.entitlements"], sources: ["Nutrition.swift", "Models.swift", "Diary.swift", "HealthState.swift", "AccountState.swift"]),
         .testTarget(name: "DiaryCoreTests", dependencies: ["DiaryCore"], path: "Tests/DiaryCoreTests")
     ]
 )

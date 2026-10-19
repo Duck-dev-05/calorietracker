@@ -12,8 +12,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.personal.CalorieTracker
         SWIFT_VERSION: '5.0'
-        MARKETING_VERSION: '0.7.0'
-        CURRENT_PROJECT_VERSION: '8'
+        MARKETING_VERSION: '0.8.0'
+        CURRENT_PROJECT_VERSION: '9'
         INFOPLIST_KEY_CFBundleDisplayName: Nourish
         TARGETED_DEVICE_FAMILY: '1'
         GENERATE_INFOPLIST_FILE: YES

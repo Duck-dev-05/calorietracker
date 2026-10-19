@@ -11,7 +11,7 @@ struct HealthMetricScreen: View {
             PageIntro(eyebrow: "Apple Health", title: metric.title, detail: metric.isDaily ? "Available activity for the current local day." : "Your most recent readable measurement.")
             Surface {
                 HStack { IconTile(icon: metric.icon); Spacer(); Pill(text: result.status.rawValue) }
-                if let value = health.monitor.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.system(.largeTitle, design: .rounded).weight(.bold)) }
+                if let value = health.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.system(.largeTitle, design: .rounded).weight(.bold)) }
                 else { Text("Unavailable").font(.title2.bold()); Text("No current value is shown. Refresh to check for available records.").font(.subheadline).foregroundStyle(.secondary) }
                 if result.status == .loading { ProgressView("Reading Health data…") }
                 if let error = result.error { Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.red) }
@@ -25,7 +25,7 @@ struct HealthMetricScreen: View {
                 if metric.isDaily { Text("This is a cumulative Apple Health total. A single recording source and sample time are not available for this aggregate.").font(.footnote) }
                 Text("Results are marked for refresh after 15 minutes. Daily activity also expires when the local day or timezone changes. Old values aren't shown as current.").font(.footnote).foregroundStyle(.secondary)
             }
-            if (metric == .height || metric == .weight), let value = health.monitor.value(metric) {
+            if (metric == .height || metric == .weight), let value = health.value(metric) {
                 Surface {
                     Text("Review the measurement date before importing. An older weight cannot replace a newer profile measurement.").font(.footnote)
                     Button("Use this measurement in my profile") {

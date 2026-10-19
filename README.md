@@ -83,3 +83,10 @@ Device checks: guest continuation reaches existing diary/setup, Profile and Sett
 - Optional protein/carbohydrate/fat entry, explicit unknown values and fractional saved-meal servings.
 - Validated portion calculations and nutrition snapshots preserved through planning, logging, export and restore.
 - No automatic target/activity adjustment or invented nutrition. Manual values still depend on the label/source you enter.
+
+
+### Version 0.8.0 — access roles
+
+Settings -> Access & permissions shows Local owner / Member / Viewer / Admin capabilities. Local journals remain usable without login. Account sessions require an explicit provider role and expiry; read-only, export/restore, edit, Health and journal-owner checks are enforced in application services. Admin cannot access other owners' journals. Backups cannot grant roles or silently adopt account data.
+
+The authentication provider is still unconfigured. Role assignment, server-side authorization, encrypted account isolation and account/guest adoption are not connected. Client-side RBAC does not secure a future API by itself.

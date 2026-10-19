@@ -2,7 +2,8 @@ import Foundation
 import Combine
 
 struct DiarySnapshot: Codable {
-    var schemaVersion: Int? = 2
+    var schemaVersion: Int? = 3
+    var ownerAccountID: String? = nil
     var profile: Profile
     var foods: [Food]
     var water: [WaterEntry]? = []
@@ -16,7 +17,8 @@ struct DiarySnapshot: Codable {
         return counts.reduce(0, +)
     }
     func validated() throws -> DiarySnapshot {
-        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
+        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 || schemaVersion == 3 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
+        if let ownerAccountID, ownerAccountID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || ownerAccountID.count > 300 { throw DiaryFailure.invalid("Invalid journal owner identifier.") }
         for (value, range) in [(profile.height, 80.0...250.0), (profile.weight, 20.0...400.0), (profile.target, 500.0...10000.0)] {
             if let value, !value.isFinite || !range.contains(value) { throw DiaryFailure.invalid("A measurement or calorie target is outside the supported input range.") }
         }
@@ -44,7 +46,7 @@ struct DiarySnapshot: Codable {
         for meal in savedMeals ?? [] { try meal.nutrition?.validate(calories: meal.calories) }
         for plan in planned ?? [] { try plan.nutrition?.validate(calories: plan.calories) }
         var result = self
-        result.schemaVersion = 2; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
+        result.schemaVersion = 3; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
         return result
     }
     static func decode(_ data: Data) throws -> DiarySnapshot {
@@ -64,7 +66,13 @@ enum DiaryFailure: LocalizedError {
 }
 
 @MainActor final class Diary: ObservableObject {
-    @Published private(set) var snapshot: DiarySnapshot = .empty
+    @Published private var storedSnapshot: DiarySnapshot = .empty
+    private let account: AccountStore
+    private var accessSubscription: AnyCancellable?
+    var snapshot: DiarySnapshot { can(.readJournal) ? storedSnapshot : .empty }
+    var canReadJournal: Bool { can(.readJournal) }
+    func can(_ permission: AppPermission) -> Bool { account.allows(permission, ownerAccountID: storedSnapshot.ownerAccountID) }
+    private func require(_ permission: AppPermission) throws { try account.require(permission, ownerAccountID: storedSnapshot.ownerAccountID) }
     @Published private(set) var now = Date()
     private var timeZoneID = TimeZone.current.identifier
     @Published var storageError: String?
@@ -82,9 +90,11 @@ enum DiaryFailure: LocalizedError {
     var water: [WaterEntry] { get { snapshot.water ?? [] } set { _ = transaction { $0.water = newValue } } }
     var weights: [WeightEntry] { get { snapshot.weights ?? [] } set { _ = transaction { $0.weights = newValue } } }
     var planned: [PlannedMeal] { get { snapshot.planned ?? [] } set { _ = transaction { $0.planned = newValue } } }
-    init(url: URL? = nil, writer: @escaping (Data, URL) throws -> Void = Diary.writeFile) {
+    init(url: URL? = nil, account: AccountStore? = nil, writer: @escaping (Data, URL) throws -> Void = Diary.writeFile) {
+        self.account = account ?? AccountStore(provider: UnconfiguredAccountProvider())
         self.url = url ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("diary.json")
         self.writer = writer
+        accessSubscription = self.account.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         retryLoad()
         let directory = self.url.deletingLastPathComponent().appendingPathComponent("Recovery", isDirectory: true)
         if let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey]) {
@@ -107,23 +117,25 @@ enum DiaryFailure: LocalizedError {
                 let data = try readDisk()
                 let loaded = try DiarySnapshot.decode(data)
                 let version = try JSONDecoder().decode(DiarySnapshot.self, from: data).schemaVersion
-                snapshot = loaded; diskBaseline = data; migrationPending = version != 2
-            } else { snapshot = .empty; diskBaseline = nil; migrationPending = false }
+                storedSnapshot = loaded; diskBaseline = data; migrationPending = version != 3
+            } else { storedSnapshot = .empty; diskBaseline = nil; migrationPending = false }
             storageBlocked = false; externalConflict = false; storageError = nil
         } catch { storageBlocked = true; storageError = "Your diary could not be opened. The original file is preserved. \(error.localizedDescription)" }
     }
     @discardableResult func transaction(_ change: (inout DiarySnapshot) throws -> Void) -> Bool {
         guard !storageBlocked else { storageError = "Storage is locked. Open recovery to restore access before saving."; return false }
         do {
-            var candidate = snapshot
+            try require(.editJournal)
+            var candidate = storedSnapshot
             try change(&candidate)
+            guard candidate.ownerAccountID == storedSnapshot.ownerAccountID else { throw DiaryFailure.invalid("Journal ownership cannot be changed by an edit or role claim.") }
             candidate = try candidate.validated()
             let data = try candidate.encoded()
             try verifyDiskBaseline()
             if migrationPending { try archiveOriginal() }
             try writer(data, url)
             diskBaseline = data; migrationPending = false
-            snapshot = candidate; storageError = nil
+            storedSnapshot = candidate; storageError = nil
             return true
         } catch { storageError = "Changes were not saved. \(error.localizedDescription)"; return false }
     }
@@ -228,16 +240,45 @@ enum DiaryFailure: LocalizedError {
             return upsertFood(Food(name: meal.name, calories: calories, date: now, category: category, nutrition: nutrition))
         } catch { storageError = error.localizedDescription; return false }
     }
-    func backupData() throws -> Data { guard !storageBlocked else { throw DiaryFailure.invalid("Export the original file from recovery instead.") }; return try snapshot.encoded() }
-    func originalData() throws -> Data { try Data(contentsOf: url) }
+    func backupData() throws -> Data { try require(.exportJournal); guard !storageBlocked else { throw DiaryFailure.invalid("Export the original file from recovery instead.") }; return try snapshot.encoded() }
+    private func authorizeFileExport(_ data: Data) throws {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let owner = object["ownerAccountID"], !(owner is NSNull) {
+                guard let owner = owner as? String else { throw AccessDenied(permission: .exportJournal) }
+                try account.require(.exportJournal, ownerAccountID: owner)
+            } else { try account.require(.exportJournal, ownerAccountID: nil) }
+        } else if account.session != nil { throw AccessDenied(permission: .exportJournal) }
+        // Damaged non-JSON local files remain recoverable by this device's local owner.
+    }
+    func originalData() throws -> Data {
+        try require(.exportJournal)
+        let data = try Data(contentsOf: url)
+        try authorizeFileExport(data)
+        return data
+    }
+    func archivedData() throws -> Data {
+        try require(.exportJournal)
+        guard let url = lastArchiveURL else { throw DiaryFailure.invalid("No recovery file is available.") }
+        let data = try Data(contentsOf: url)
+        // Archives may belong to a different owner; never assume current ownership.
+        try authorizeFileExport(data)
+        return data
+    }
     private func archiveOriginal() throws {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let archive = url.deletingLastPathComponent().appendingPathComponent("Recovery", isDirectory: true).appendingPathComponent("diary-before-replace-\(UUID().uuidString).json")
         try Self.writeFile(Data(contentsOf: url), archive)
         lastArchiveURL = archive
     }
+    @discardableResult func resetJournal() -> Bool {
+        var empty = DiarySnapshot.empty
+        empty.ownerAccountID = storedSnapshot.ownerAccountID
+        return replace(with: empty)
+    }
     @discardableResult func replace(with replacement: DiarySnapshot) -> Bool {
         do {
+            try require(.restoreJournal)
+            guard replacement.ownerAccountID == storedSnapshot.ownerAccountID else { throw DiaryFailure.invalid("This backup belongs to a different journal owner. Account-data adoption is not enabled.") }
             guard !externalConflict else { throw DiaryFailure.invalid("Reload the changed diary before replacing it. Your newer file has been preserved.") }
             let candidate = try replacement.validated()
             let data = try candidate.encoded()
@@ -248,7 +289,7 @@ enum DiaryFailure: LocalizedError {
             try archiveOriginal()
             try writer(data, url)
             diskBaseline = data; migrationPending = false
-            snapshot = candidate; storageBlocked = false; externalConflict = false; storageError = nil
+            storedSnapshot = candidate; storageBlocked = false; externalConflict = false; storageError = nil
             return true
         } catch { storageError = "Diary was not replaced. \(error.localizedDescription)"; return false }
     }

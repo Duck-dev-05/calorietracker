@@ -4,6 +4,8 @@ import HealthKit
 
 @MainActor final class HealthKitProvider: HealthReadingProvider {
     private let store = HKHealthStore()
+    private let authorized: () -> Bool
+    init(authorized: @escaping () -> Bool) { self.authorized = authorized }
     var available: Bool { HKHealthStore.isHealthDataAvailable() }
     private func type(_ metric: HealthMetric) -> HKQuantityType {
         let id: HKQuantityTypeIdentifier
@@ -13,8 +15,9 @@ import HealthKit
     private func unit(_ metric: HealthMetric) -> HKUnit {
         switch metric { case .steps: return .count(); case .activeEnergy: return .kilocalorie(); case .height: return .meterUnit(with: .centi); case .weight: return .gramUnit(with: .kilo) }
     }
-    func requestAccess() async throws { try await store.requestAuthorization(toShare: [], read: Set(HealthMetric.allCases.map { type($0) })) }
+    func requestAccess() async throws { guard authorized() else { throw AccessDenied(permission: .readHealth) }; try await store.requestAuthorization(toShare: [], read: Set(HealthMetric.allCases.map { type($0) })) }
     func read(_ metric: HealthMetric, now: Date) async throws -> HealthReading? {
+        guard authorized() else { throw AccessDenied(permission: .readHealth) }
         let quantityType = type(metric), quantityUnit = unit(metric)
         if metric.isDaily {
             let predicate = HKQuery.predicateForSamples(withStart: Calendar.current.startOfDay(for: now), end: now, options: .strictStartDate)
@@ -40,19 +43,22 @@ import HealthKit
     }
 }
 @MainActor final class HealthService: ObservableObject {
-    let monitor: HealthMonitor
+    private let monitor: HealthMonitor
     private var subscription: AnyCancellable?
-    init() {
-        monitor = HealthMonitor(provider: HealthKitProvider())
+    private let authorized: () -> Bool
+    init(authorized: @escaping () -> Bool = { true }) {
+        self.authorized = authorized
+        monitor = HealthMonitor(provider: HealthKitProvider(authorized: authorized))
         subscription = monitor.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
     }
-    var steps: Double? { monitor.value(.steps) }
-    var activeEnergy: Double? { monitor.value(.activeEnergy) }
-    var height: Double? { monitor.value(.height) }
-    var weight: Double? { monitor.value(.weight) }
+    var steps: Double? { value(.steps) }
+    var activeEnergy: Double? { value(.activeEnergy) }
+    var height: Double? { value(.height) }
+    var weight: Double? { value(.weight) }
     var busy: Bool { monitor.busy }
-    var status: String { monitor.status }
-    func result(_ metric: HealthMetric) -> MetricResult { monitor.result(metric) }
+    var status: String { authorized() ? monitor.status : "Your role does not allow Apple Health access." }
+    func value(_ metric: HealthMetric) -> Double? { authorized() ? monitor.value(metric) : nil }
+    func result(_ metric: HealthMetric) -> MetricResult { authorized() ? monitor.result(metric) : MetricResult() }
     func expireOldResults() { monitor.expireOldResults() }
     func connect() async { await monitor.connect() }
     func refresh(_ metric: HealthMetric? = nil) async { await monitor.refresh(metric) }

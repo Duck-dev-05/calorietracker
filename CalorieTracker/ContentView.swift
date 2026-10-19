@@ -15,7 +15,9 @@ struct ContentView: View {
     @AppStorage("healthEnabled") private var healthEnabled = false
     var body: some View {
         Group {
-            if diary.storageBlocked {
+            if !diary.canReadJournal {
+                AdaptiveNavigation { JournalAccessDeniedScreen() }
+            } else if diary.storageBlocked {
                 AdaptiveNavigation { StorageRecoveryScreen() }
             } else if !accountChoiceMade && account.session == nil {
                 AdaptiveNavigation { AccountWelcomeScreen() }

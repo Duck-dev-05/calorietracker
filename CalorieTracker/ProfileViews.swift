@@ -64,7 +64,7 @@ struct HealthScreen: View {
                 NavigationLink(destination: HealthMetricScreen(metric: metric)) {
                     Surface {
                         RouteRow(title: metric.title, subtitle: health.result(metric).status.rawValue, icon: metric.icon, color: metric.isDaily ? NourishStyle.accent : .pink)
-                        if let value = health.monitor.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.title2.bold()).foregroundStyle(.primary) }
+                        if let value = health.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.title2.bold()).foregroundStyle(.primary) }
                     }
                 }.buttonStyle(.plain)
             }
@@ -84,7 +84,7 @@ struct SettingsScreen: View {
                 ValueRow(title: "Interface", value: InterfaceGeneration.name)
                 Text(InterfaceGeneration.explanation).font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Account") { NavigationLink("Login & registration", destination: AccountWelcomeScreen()) }
+            Section("Account") { NavigationLink("Login & registration", destination: AccountWelcomeScreen()); NavigationLink("Access & permissions", destination: AccessPermissionsScreen()) }
             Section("Your information") {
                 NavigationLink(destination: BackupScreen()) { Label("Backup & restore", systemImage: "externaldrive") }
                 NavigationLink("Privacy & storage", destination: PrivacyScreen())

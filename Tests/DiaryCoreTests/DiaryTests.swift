@@ -10,7 +10,7 @@ final class DiaryTests: XCTestCase {
     func testLegacyFileMigratesAndRoundTrips() throws {
         let data = Data("{\"profile\":{\"height\":170,\"weight\":70,\"target\":2000,\"goal\":\"Maintain\",\"preferences\":\"Balanced\"},\"foods\":[]}".utf8)
         let snapshot = try DiarySnapshot.decode(data)
-        XCTAssertEqual(snapshot.schemaVersion, 2)
+        XCTAssertEqual(snapshot.schemaVersion, 3)
         XCTAssertNotNil(snapshot.water)
         XCTAssertNotNil(snapshot.weights)
         XCTAssertNotNil(snapshot.planned)

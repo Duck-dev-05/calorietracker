@@ -315,3 +315,20 @@ Manual food and saved-meal editors accept optional macros. Saved-meal details su
 Added regression coverage for migration/archive/write failures, externally changed/deleted files, invalid/nonfinite inputs, unit compatibility, fractional portions, unknown versus zero macros, rounded calorie mismatches and immutable plan/log history. CI and device verification status must be checked separately before release.
 
 Remaining: complete H1–H2 food-picker flow, daily macro aggregation, target history/activity policy, automatic target calculations and recommendation eligibility. No dynamic Health budget or nutrition inferred by AI has been enabled. Existing atomic storage remains synchronous; the external-change check is optimistic concurrency protection, not a cross-process file lock.
+
+## 11. RBAC implementation — version 0.8.0
+
+Implemented a centralized deny-by-default policy with Local owner, Member, Viewer, Admin and Unknown roles. Account roles/expiry come only through the AccountProvider boundary, not a registration field, profile preference or imported backup. Production authentication is still unconfigured.
+
+- Local owner retains normal local-journal behavior without login.
+- Member and Admin can read/edit/export/restore only a journal whose ownerAccountID matches their validated session ID. Admin has no cross-owner bypass and no role-promotion UI.
+- Viewer can read only their account-owned journal; editing, export/restore and Health reads are denied.
+- Unknown, missing, invalid or expired account claims are denied. Ending a local session prevents pending sign-in responses from reinstalling it.
+- Schema 3 adds optional journal ownership; legacy local records remain local with no automatic account adoption. Migration archives remain required. A generic edit/import cannot change ownership; reset preserves it.
+- Diary reads, transactions, backup/recovery export, replacement/reset and production Health entry points use permission checks. Unauthorized snapshots expose no journal contents. Access & permissions shows current capability state.
+
+This is application-layer RBAC and owner scoping, not a server authorization implementation or encrypted multi-user storage. There is no sharing, role-assignment API, account switching/adoption service or remote token revocation yet. A future backend must verify identity and authorize every request independently. A local device owner can still inspect exported files or modify a client; imported owner metadata is not cryptographic proof of ownership. Roles themselves are never loaded from backups.
+
+Tests cover role/permission/ownership combinations, invalid/expired provider claims, viewer write/export/restore denial, admin cross-owner denial, member ownership-preserving operations, guest backup restrictions and legacy migration. Live identity/Health device validation remains a separate integration gate.
+
+Reference: [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html).

@@ -27,7 +27,7 @@ Core principles:
 | Water and weight | Dated records, custom entries, editing/deletion and weight reconciliation | Longer-range trends and display-unit preferences |
 | HealthKit | Steps, active energy, height and weight; independent results, freshness, retry and separate authorization/refresh | Workout history, documented budget policy and device verification |
 | Storage | Versioned JSON, atomic writes, validation, backup/import preview and recovery archives | Serialized asynchronous operations, archive browser and retention controls |
-| Account pages | Welcome, login, registration, reset-password and guest continuation | A real identity provider, secure sessions and account-data ownership |
+| Account pages | Welcome, login, registration, reset-password and mandatory session gate | A real identity provider, secure sessions and account-data ownership |
 | UI and build | Shared design system, adaptive navigation, iOS availability guards and CI IPA packaging | Nutrition/recommendation pages, accessibility/device coverage and release assets |
 | Automated checks | Domain tests and successful iOS 15 IPA compilation | Coverage for each new model, migration, calculation and integration |
 

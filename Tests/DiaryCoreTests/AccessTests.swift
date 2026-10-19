@@ -114,4 +114,18 @@ final class AccessTests: XCTestCase {
         XCTAssertEqual(loaded.schemaVersion, 3); XCTAssertNil(loaded.ownerAccountID)
         XCTAssertEqual(loaded.foods.first?.id, saved.foods.first?.id)
     }
+    func testCorruptAccountFileCannotBeResetOrExportedByGuest() async throws {
+        let url = try temporaryURL(); defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let bytes = Data("{\"schemaVersion\":3,\"ownerAccountID\":\"private-owner\",\"foods\":\"damaged\"}".utf8)
+        try bytes.write(to: url)
+        try await MainActor.run {
+            let diary = Diary(url: url)
+            XCTAssertTrue(diary.storageBlocked)
+            XCTAssertFalse(diary.canReadJournal)
+            XCTAssertFalse(diary.resetJournal())
+            XCTAssertThrowsError(try diary.originalData())
+            XCTAssertEqual(try Data(contentsOf: url), bytes)
+        }
+    }
+
 }

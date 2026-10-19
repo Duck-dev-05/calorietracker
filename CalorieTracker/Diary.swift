@@ -115,6 +115,15 @@ enum DiaryFailure: LocalizedError {
         do {
             if FileManager.default.fileExists(atPath: url.path) {
                 let data = try readDisk()
+                // Retain owner scope even if nutrition/schema validation subsequently
+                // fails, so recovery cannot turn an account journal into a guest one.
+                if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    var recovery = DiarySnapshot.empty
+                    if let owner = object["ownerAccountID"], !(owner is NSNull) {
+                        recovery.ownerAccountID = (owner as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "invalid-owner-\(UUID().uuidString)"
+                    }
+                    storedSnapshot = recovery
+                }
                 let loaded = try DiarySnapshot.decode(data)
                 let version = try JSONDecoder().decode(DiarySnapshot.self, from: data).schemaVersion
                 storedSnapshot = loaded; diskBaseline = data; migrationPending = version != 3

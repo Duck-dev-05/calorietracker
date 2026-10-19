@@ -18,7 +18,7 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
       - name: Install build tools
         run: brew install xcodegen ldid
-      - name: Test Google OAuth build configuration
+      - name: Test OAuth and Keychain build configuration
         run: python3 -m unittest discover -s Tests/ConfigurationTests -p "test_*.py"
       - name: Test storage and recovery behavior
         run: swift test

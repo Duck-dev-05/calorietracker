@@ -17,6 +17,7 @@ import GoogleSignIn
     }
     func signInWithGoogle() async throws -> AccountSession {
         try configure()
+        try KeychainAccessProbe.verify()
         guard let presenter = Self.presenter() else { throw DiaryFailure.invalid("Open the login page in the active app window and try again.") }
         do {
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
@@ -58,7 +59,7 @@ import GoogleSignIn
         let value = error as NSError
         if value.domain == kGIDSignInErrorDomain {
             if value.code == -5 { return CancellationError() }
-            if value.code == -2 { return DiaryFailure.invalid("Google sign-in could not access this installation's Keychain. Check signing/Keychain support on your iPhone; no session was opened.") }
+            if value.code == -2 { return DiaryFailure.invalid("Google could not save credentials to the private Keychain. Update Nourish through TrollStore and try again; no session was opened.") }
         }
         // Do not expose provider error payloads, redirect URLs or tokens in UI/logs.
         return DiaryFailure.invalid("Google sign-in did not finish. Check your connection and OAuth app configuration, then try again.")

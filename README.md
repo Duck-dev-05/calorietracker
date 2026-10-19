@@ -120,3 +120,10 @@ See [Google setup instructions](Config/README.md). Google OAuth/Keychain must be
 The supplied Google iOS client ID is now in Config/GoogleSignIn.json. Builds generate its callback scheme automatically and verify both values in the packaged app. This supersedes the earlier empty-configuration limitation.
 
 Google Cloud currently restricts OAuth to test users: add your sign-in email under Google Auth Platform -> Audience -> Test users. Install the rebuilt IPA to verify Google sign-in/callback and Keychain persistence on the actual TrollStore device.
+
+
+### Version 0.10.2 — TrollStore Keychain identity
+
+The signing configuration now includes an explicit app-only Keychain group and matching TrollStore application identity, retaining HealthKit. Packaging validates the generated and extracted entitlements and rejects broad/unrelated grants. Google sign-in checks default Keychain write/read/delete access before starting OAuth and reports a status code if access still fails.
+
+Update the existing installation through TrollStore to preserve diary data. The bundle ID, journal schema and Google client ID remain unchanged. Verify sign-in and restoration on the phone; the build cannot prove device Keychain access.

@@ -37,10 +37,12 @@ if expected:
     assert reversed_id in schemes, "Built app is missing the Google callback scheme"
 print("Verified Google OAuth configuration in packaged app.")
 PYGOOGLE
-# Embed only the public HealthKit entitlement. TrollStore preserves it when installing.
+# TrollStore-specific signing: keep credentials in one stable, app-only group.
+# XcodeGen regenerates this file, so validate it before signing and after extraction.
+python3 scripts/verify-entitlements.py CalorieTracker/CalorieTracker.entitlements --info-plist "$APP/Info.plist"
 ldid -SCalorieTracker/CalorieTracker.entitlements "$APP/$EXECUTABLE"
 ldid -e "$APP/$EXECUTABLE" > "$BUILD_DIR/embedded-entitlements.plist"
-/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.healthkit' "$BUILD_DIR/embedded-entitlements.plist" | grep -qx true
+python3 scripts/verify-entitlements.py "$BUILD_DIR/embedded-entitlements.plist" --info-plist "$APP/Info.plist"
 mkdir -p "$BUILD_DIR/package/Payload" dist
 cp -R "$APP" "$BUILD_DIR/package/Payload/"
 (cd "$BUILD_DIR/package" && /usr/bin/zip -qry "$BUILD_DIR/Nourish.ipa" Payload)

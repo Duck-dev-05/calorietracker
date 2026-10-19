@@ -46,3 +46,16 @@ Google's SDK handles credential persistence with Keychain. Google's documentatio
 - [Google iOS setup](https://developers.google.com/identity/sign-in/ios/start-integrating)
 - [Google sign-in, callbacks and restoration](https://developers.google.com/identity/sign-in/ios/sign-in)
 - [Google backend authentication](https://developers.google.com/identity/sign-in/ios/backend-auth)
+
+
+## TrollStore Keychain configuration (0.10.2)
+
+The IPA now explicitly embeds `application-identifier = TROLLTROLL.com.personal.CalorieTracker`, `com.apple.developer.team-identifier = TROLLTROLL`, and a single `keychain-access-groups` entry with that same app-scoped identifier, alongside HealthKit. TROLLTROLL is the TrollStore signing namespace, not an Apple-issued Developer Team ID; do not put it into your Google Cloud Team ID field. A future certificate-signed distribution needs its own real provisioning/signing configuration.
+
+The previous HealthKit-only entitlement file prevented TrollStore's no-entitlements fallback from supplying a Keychain identity. Source and extracted executable entitlements are now checked during packaging. No wildcard, Apple/system token group or debugging privilege is granted. Keep this group stable across updates so previously saved Google sessions remain accessible.
+
+Interactive sign-in first performs a temporary write/read/delete probe in the same default Keychain group used by the SDK. The random probe does not query/delete Google credentials or other app data. A failed probe reports the OSStatus and leaves the journal locked. It never falls back to plaintext tokens.
+
+Install the new IPA as an **update over the existing app** in TrollStore; do not uninstall or erase the journal. Verify the sign-in completes, then relaunch and test session restoration/sign-out. The bundle ID, OAuth client ID and diary schema are unchanged. Successful entitlement checks are not a substitute for a successful phone test.
+
+References: [TrollStore signing source](https://github.com/opa334/TrollStore/blob/main/RootHelper/main.m), [Apple default Keychain groups](https://developer.apple.com/documentation/security/ksecattraccessgroup).

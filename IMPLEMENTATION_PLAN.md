@@ -311,3 +311,14 @@ The user supplied an iOS OAuth client ID from Google Cloud. It is now saved in C
 The Google Cloud screenshot states that OAuth access is restricted to test users. Add the intended Google account under Google Auth Platform -> Audience -> Test users before the phone test. Actual consent/callback, Keychain behavior on TrollStore, restoration, refresh and logout still require live device verification; configured credentials/build success are not proof of a successful login. No client secret was requested or embedded.
 
 This supersedes the missing-client-ID activation blocker in section 12. A1 now has its configuration as well as its adapter/UI implementation; live verification remains open. A2 ownership/isolation and account lifecycle follow-up remain unchanged.
+
+
+## 14. TrollStore Keychain repair — version 0.10.2
+
+The user reported the Google SDK Keychain error on a real installation. Code review found that the IPA embedded only HealthKit. TrollStore's source applies its default Keychain identity only if no entitlement dictionary exists, so that fallback does not fill the missing values in this build.
+
+Added an explicit app-scoped application identifier, matching Keychain group and TrollStore signing namespace in both XcodeGen properties and the entitlement source. Preserve HealthKit and keep the existing bundle ID/data container, OAuth configuration and schema. No wildcard, Apple token group, debug entitlement, plaintext credential fallback or broad Keychain cleanup is introduced.
+
+Packaging validates the exact minimal entitlement set before ldid and again after extracting it from the signed executable. Added configuration tests for missing identity, wrong group/bundle, broad grants and extra privileges. Interactive Google login has a temporary default-group Keychain probe with sanitized OSStatus feedback; it does not touch SDK credentials.
+
+Remaining acceptance: install as an update on the user's TrollStore device, complete Google login, confirm relaunch restoration, expiry refresh and sign-out. CI/build verification cannot establish runtime Keychain access. TROLLTROLL is a TrollStore signing namespace, not a real Apple Developer Team ID or Google Cloud Team ID.

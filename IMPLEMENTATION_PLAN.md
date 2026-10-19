@@ -1,6 +1,6 @@
 # Nourish Calorie Tracker — Implementation Plan
 
-Reviewed: 19 October 2026. Application baseline: **0.9.0, build 13**, source commit `da21143`.
+Reviewed: 19 October 2026. Application baseline: **0.12.0, build 19**, source commit `4afb8e2`.
 
 This is the consolidated current plan. It replaces the older appended release notes and superseded role/login directions. Status reflects repository code and the latest verified build, not assumed device testing.
 
@@ -22,17 +22,19 @@ Current behavior to preserve:
 6. Unknown nutrients stay unknown. Suggestions and target estimates require user review before committing changes.
 7. Maintain SwiftUI, iOS 15 minimum support, the bundle identifier and the TrollStore IPA workflow.
 
-**Current usability blocker:** production uses `UnconfiguredAccountProvider`. Public Home works, but real registration/sign-in/reset cannot complete and protected pages remain locked. Tests use isolated provider fixtures; those are not production accounts.
+**Current authentication:** production uses `DeviceAccountProvider`, combining device-local email/password accounts and the configured Google SDK provider. Local registration immediately signs in; local login uses stored password verifiers. Google uses the supplied real iOS OAuth client ID. These flows are implemented and compile; successful real-device operation is not established by CI.
+
+**Important current limits:** local accounts do not verify email ownership, provide password recovery, synchronize between devices or restore a session after relaunch. Their sessions last up to 12 hours while the process remains active. Google supports SDK restoration/refresh. All authenticated accounts open the same on-device journal. Signing in with Google is a separate login method, **not recovery or linking of an existing local identity**. Do not claim account isolation or email recovery.
 
 ## 2. Completed and partial implementation audit
 
 | Area | Status | What is implemented | What remains |
 | --- | --- | --- | --- |
 | Public launch | Implemented | Branded Home, tab bar and optional sign-in/register links; no forced Login at launch | Device navigation checks |
-| Authentication screens | Implemented UI; blocked integration | Login, registration, reset-password, validation, password visibility and account security screen | Real identity provider, actual email/reset flows and integration tests |
-| Session access | Implemented foundation | Session validation/expiry, sign-out, signed-out store guards, hidden private snapshots and navigation reset | Keychain persistence, refresh, remote revocation and connected-provider tests |
-| Data ownership | Partial | Legacy owner metadata is preserved; edits/imports cannot silently change that metadata | Decide shared-device diary versus per-account isolation before live authentication; current valid sessions unlock the same on-device journal |
-| Profile | Implemented | Personal details, age/activity, optional measurements, goals/preferences and manual calorie target | Formula-specific inputs, estimates and target history |
+| Authentication screens | Implemented; device verification pending | Local name/email/password registration and login, Google sign-in, validation, password visibility, password help and account security | Actual provider/storage tests, device QA, password change/recovery policy and account deletion |
+| Session access | Partial | Google SDK Keychain restore/refresh/sign-out; local 12-hour memory session; expiry guards, hidden snapshots and navigation reset | Device lifecycle tests, explicit local remember-me decision, provider revocation/unlink behavior |
+| Data ownership | Partial | Legacy owner metadata is preserved; edits/imports cannot silently change that metadata | Shared diary is disclosed in Login/Register; decide whether to retain it or add isolated stores and reviewed legacy adoption before claiming private accounts |
+| Profile | Implemented | Authenticated name/email/initials/provider, separate personal details/goals/preferences pages, optional measurements and manual calorie target | Account edit/change-password/deletion, formula-specific inputs, estimates and target history |
 | Food diary | Partial | Dated entries, categories, detail/edit/delete, optional macros and nutrition snapshots | Saved-food picker, custom portion editor and daily macro aggregation |
 | Nutrition arithmetic | Implemented foundation | Finite/range checks, compatible mass/volume conversions, unknown-versus-zero macros and boundary rounding | Full reference-serving UI, edit precision regression and explicit zero-energy-food policy |
 | Saved meals | Partial | CRUD, search, vegetarian/exclusion filters, per-serving calories/macros and quarter-serving logging/planning | Arbitrary quantities, structured ingredients/source metadata, favorites and recent selection |
@@ -40,7 +42,7 @@ Current behavior to preserve:
 | Water and weight | Implemented | Custom dated records, edit/delete, weight source/time and current-weight reconciliation | Longer trends, display units and broader device verification |
 | HealthKit | Partial | Steps, active energy, height and weight; independent reads, freshness, retry and permission/refresh separation | Workout queries, device checks, optional background updates and a defined activity budget policy |
 | Storage | Implemented safeguards; partial tooling | Schema 3, legacy decoding, atomic validated writes, migration archives, stale-file checks, backup preview and recovery | Async serialized operations, archive browser/retention and expanded schema fixtures |
-| UI and brand | Implemented shared refresh | Forest/ivory/lime palette, dark variants, shared cards/buttons, responsive grids, branded pages, logo and iPhone icon assets | Small-screen/accessibility/iOS-version visual QA and remaining feature pages |
+| UI and brand | Implemented shared refresh | Teal/mint palette, dark variants, shared cards/buttons, Today quick actions, compact meal cards, seven-day Progress and refreshed auth/Profile layouts; logo/icon assets | Small-screen/accessibility/iOS-version visual QA and remaining feature pages |
 | Build | Implemented | CI domain tests, iOS 15 compile, IPA packaging and checks for AppIcon metadata/Assets.car | Recorded install/update and icon checks on supported devices |
 | BMR/TDEE and macro targets | Not started | Manual calorie target remains available | Calculator, documented method, effective dates and reviewed target UI |
 | Recommendations | Not started | Saved-meal search/filtering only; this is not a ranked recommendation engine | Eligibility, scoring, portion selection, explanations and review pages |
@@ -48,8 +50,8 @@ Current behavior to preserve:
 
 ### Verified baseline
 
-- [Successful application build and IPA](https://github.com/Duck-dev-05/calorietracker/actions/runs/39200760286) corresponds to `da21143`.
-- Repository contains **41 test methods** across storage/diary, Health/day handling, nutrition, account validation and session access. The baseline CI test step passed.
+- [Successful application build and IPA](https://github.com/Duck-dev-05/calorietracker/actions/runs/39233214163) corresponds to `4afb8e2`.
+- Latest CI configuration tests, Swift core tests and iOS IPA compile/package/upload passed. Core account tests use provider fixtures; `DeviceAccountProvider.swift` is excluded from the core test target, so its real PBKDF2/Keychain database behavior is not covered by those tests.
 - Logo master/source and generation prompt: `Brand/`; compiled icon/mark sources: `CalorieTracker/Assets.xcassets/`.
 - An earlier IPA was reported to launch on the user's phone. New UI, connected authentication and every Health/device flow are **not** confirmed by that report or by compilation.
 
@@ -133,8 +135,8 @@ Completion: local recommendations work without AI/network, with stable tested ra
 | Page or workflow | Status | Remaining acceptance requirement |
 | --- | --- | --- |
 | Public Home and protected tabs | Implemented | Check launch, tab changes, sign-out and expiry on device |
-| Login / Register / Reset password | UI implemented; service blocked | Connect genuine identity flows and handle verification/recovery errors |
-| Account & security | Partial | Secure session lifecycle, deletion/revocation and accurate connected-service disclosure |
+| Login / Register / Password help | Implemented; device verification pending | Validate local/Google flows on device; password help accurately states local recovery is unavailable |
+| Account & security | Partial | Add local password change/account deletion; distinguish Google versus local session help and shared-journal behavior |
 | Personal details / Goals / Preferences | Implemented manual editors | Formula inputs, target history and estimates; keep existing pages |
 | Choose food | Not started | Search actual saved foods/recent items and preserve selected day/category |
 | Portion editor | Partial: meal details stepper exists | Arbitrary quantity/unit, nutrition preview and explicit save for diary/plans |
@@ -152,22 +154,37 @@ Completion: local recommendations work without AI/network, with stable tested ra
 
 Macro composition must clearly represent grams or energy contribution, never an unexplained mixture. Native `SectorMark` donut/pie needs iOS 17+; provide supported text/progress/Shape alternatives for iOS 15–16. Accessible textual macro values matter before decorative charts.
 
-UI checks still needed: small/large iPhones, Dynamic Type, VoiceOver labels/order, light/dark/system, contrast, Reduce Motion/Transparency, long names, keyboard dismissal, sheet scrolling, unsaved drafts and repeated saves. The latest shared UI refresh is implemented, not proof these checks passed.
+UI checks still needed: small/large iPhones, Dynamic Type, VoiceOver labels/order, light/dark/system, contrast, Reduce Motion/Transparency, long names, keyboard dismissal, sheet scrolling, unsaved drafts and repeated saves. The v0.12.0 shared UI refresh is implemented, not proof these checks passed. Keep the completed redesign; prioritize layout fixes found by QA over another broad visual rewrite.
 
 ## 7. Phase 4 — Connected services and release
 
 **Status: Build/branding implemented; external integrations and device release validation pending.**
 
-### 7.1 Authentication — next release blocker
+### 7.1 Authentication — finish reliability and lifecycle
 
-- [ ] Select/configure an identity provider and its iOS callback/deep-link behavior.
-- [ ] Connect real login, registration, email verification and password reset. Never fabricate success when only form validation passed.
-- [ ] Implement Keychain-backed session persistence, refresh/expiry, relaunch and offline behavior. The current session is memory-only.
-- [ ] Revoke/clear sessions appropriately on sign-out and handle pending/cancelled authentication responses.
-- [ ] Decide and explain data ownership **before** live account switching: the present app has one on-device diary that any valid session unlocks. Choose whether to retain that model or implement isolated account stores with reviewed legacy-data adoption.
-- [ ] Add account deletion and explain whether local records and remote identity/data are deleted separately.
-- [ ] Add provider integration tests for failures, cancellation, invalid sessions, revocation, relaunch and expired credentials.
-- [ ] Preserve public Home at launch. Never restore roles or force Login before the user opens personal features.
+Already implemented:
+
+- [x] Device-local registration/login and Google sign-in in production, with public Home at launch.
+- [x] Local records in the private device-only Keychain: stable ID, normalized email, name, random salt, PBKDF2-HMAC-SHA256 verifier (600,000 iterations), persisted failed-attempt lockout.
+- [x] No persisted plaintext passwords; hashing runs off the main thread; database write succeeds before authentication is returned.
+- [x] Five failed attempts temporarily lock a local account for 15 minutes.
+- [x] Google client ID/callback configuration, SDK restoration/refresh/sign-out, scoped TrollStore Keychain entitlements and build validation.
+- [x] Both methods supply Profile name/email/provider, without overwriting diary measurements or targets.
+- [x] Password help states local recovery is unavailable; Google recovery link is separate.
+
+Remaining:
+
+- [ ] Extract injectable account repository, credential derivation and clock boundaries so real local-account behavior can be tested without production Keychain access. Do not treat mock-provider tests as database tests.
+- [ ] Test register -> logout -> login, duplicate normalized email, wrong password, fifth failure, lockout persistence/expiry, corrupt records, denied Keychain, failed writes, Unicode passwords and cancellation during hashing.
+- [ ] Record phone checks for local relaunch login, Google consent/callback, SDK restoration/refresh, logout/expiry, account switching and update-in-place data preservation.
+- [ ] Keep local sessions memory-only unless a deliberate remember-me design is implemented. Never persist a bare authenticated flag or derive a session from unverified profile data.
+- [ ] Decide shared journal versus per-account storage. Isolation requires separate files, validated account IDs and explicit legacy-journal adoption; never silently copy or delete existing data.
+- [ ] Build Change password using the current password, verifier replacement and recoverable write failure; require recent authentication for sensitive account actions.
+- [ ] Define local recovery before adding a reset flow. A recovery code or an actual verified backend is a separate design; Google login must not silently link by matching email.
+- [ ] Build Delete local account with explicit explanation that account deletion and shared-journal deletion are separate. Do not delete other accounts or the shared journal automatically.
+- [ ] Clarify Google sign-out versus revocation/disconnect, and provide deliberate disconnect behavior if added.
+- [ ] Update Account & security, Config/README.md and older README sections that still describe Google-only/unconfigured authentication; remove obsolete reset claims.
+- [ ] Define and test account-record format migration/backup limitations before changing the stored record layout. Journal exports intentionally contain no credential records.
 
 ### 7.2 USDA FoodData Central
 
@@ -217,8 +234,8 @@ Implemented safeguards stay mandatory. Priority is based on impact, not phase nu
 
 | Priority | ID | Work still needed | Dependency / completion condition |
 | --- | --- | --- | --- |
-| P0 Critical | A1 | Connect genuine authentication | Required for protected pages to be usable outside test fixtures |
-| P0 Critical | A2 | Secure session lifecycle and explicit on-device/account ownership policy | Complete before live identity/account switching; no role model |
+| P0 Critical | A1 | Validate actual local/Google authentication and failure behavior | Both implemented; add real credential/repository tests and physical-device evidence |
+| P0 Critical | A2 | Confirm session/account-switching behavior and journal ownership policy | Shared journal is disclosed; isolation/linking/recovery are not implemented; no roles |
 | P0 Critical gate | C1 | Preserve schema/migration/atomic-save protections as models evolve | Foundation implemented; expand fixtures for every new schema |
 | P0 Critical gate | C2 | Preserve nutrition accuracy through editing and aggregation | Foundation implemented; verify untouched-field precision and unknown-macro coverage before extending flows |
 | P0 Critical gate | C3 | Define activity accounting and dated targets before dynamic budgets | Not started; no duplicate energy or invented historical targets |
@@ -233,13 +250,13 @@ Implemented safeguards stay mandatory. Priority is based on impact, not phase nu
 | P1 High | H6 | Suggestion list/detail/review pages | H5; no fabricated candidates |
 | P1 High | H7 | Complete planner portion/macro editing | Existing plan CRUD/copy/consumption are already done |
 | P1 High | H8 | Health/date integration validation | Existing freshness/day foundation is done; real-device policy checks remain |
+| P1 High | H9 | Local change-password, account deletion and accurate account/help documentation | Current-password verification; preserve shared diary and unrelated accounts; recovery requires a separate design |
 | P2 Medium | M1 | Daily summary, target-history browsing and longer trends | Effective-dated targets; current weekly progress uses the current target |
 | P2 Medium | M2 | Recovery archive browser/retention | Existing archive/export/recovery behavior remains available after sign-in |
 | P2 Medium | M3 | Async serialized persistence and large-import responsiveness | Keep commit ordering/failure guarantees; promote demonstrated correctness failures to P0 |
 | P2 Medium | M4 | Workout history/query and optional background delivery | Build only with a defined use case and tested energy policy |
 | P2 Medium | M5 | USDA integration | H1–H2 and C6 |
 | P2 Medium | M6 | Optional AI pilot/settings/secured adapter | H5–H6 and C6 |
-| P2 Medium | M7 | Account deletion and any chosen account data-migration tooling | Basic live authentication/session safety are A1–A2, no longer postponed here |
 | P2 Medium | M8 | Structured ingredients and recipe yield calculations | Stable serving model and traceable source data |
 | P3 Low | L1 | Favorites and richer recent-food shortcuts | Reliable Choose food flow |
 | P3 Low | L2 | Display-unit preferences | Tested canonical unit conversions |
@@ -250,16 +267,17 @@ Implemented safeguards stay mandatory. Priority is based on impact, not phase nu
 
 ## 9. Updated build order
 
-1. **Unblock actual use:** select/connect authentication, secure session handling and decide journal ownership. Preserve public Home and Profile login behavior.
-2. **Close nutrition gaps:** reference-serving editor, arbitrary portion handling, untouched-field precision tests, zero-energy policy and expanded migration fixtures.
-3. **Complete logging:** Choose food -> Portion review -> dated/category-aware Save; reuse actual saved meals and preserve snapshots.
-4. **Implement targets:** documented calculator/activity policy -> dated targets -> macro allocation -> review/apply UI.
-5. **Show honest daily values:** macro aggregation with coverage, dashboard and historical comparisons; avoid treating current targets as historical facts.
-6. **Implement local suggestions:** deterministic eligibility/ranking -> list/detail -> reviewed Log/Plan, including planner nutrition editing.
-7. **Improve history/recovery:** summaries, archive browser, measured persistence performance and required workout support.
-8. **Connect food data:** USDA with provenance, serving/unit mapping and offline behavior.
-9. **Add optional AI:** consent/settings, secured adapter and evaluated saved-meal pilot; expand only after passing quality/privacy checks.
-10. **Add conveniences:** favorites, display units, reminders, week view and chart polish.
+1. **Verify existing accounts and protect data:** actual local-provider tests, TrollStore/device login and update checks, journal ownership decision and accurate account documentation. Authentication is already connected; preserve public Home and signed-out Profile behavior.
+2. **Complete account lifecycle:** current-password-protected password change and local-account deletion with clear shared-diary effects. Choose recovery/isolation policy before implementing those extensions.
+3. **Close nutrition gaps:** reference-serving editor, arbitrary portion handling, untouched-field precision tests, zero-energy policy and expanded migration fixtures.
+4. **Complete logging:** Choose food -> Portion review -> dated/category-aware Save; reuse actual saved meals and preserve snapshots.
+5. **Implement targets:** documented calculator/activity policy -> dated targets -> macro allocation -> review/apply UI.
+6. **Show honest daily values:** macro aggregation with coverage, dashboard and historical comparisons; avoid treating current targets as historical facts.
+7. **Implement local suggestions:** deterministic eligibility/ranking -> list/detail -> reviewed Log/Plan, including planner nutrition editing.
+8. **Improve history/recovery:** summaries, archive browser, measured persistence performance and required workout support.
+9. **Connect food data:** USDA with provenance, serving/unit mapping and offline behavior.
+10. **Add optional AI:** consent/settings, secured adapter and evaluated saved-meal pilot; expand only after passing quality/privacy checks.
+11. **Add conveniences:** favorites, display units, reminders, week view and chart polish.
 
 Run relevant regression/compile checks and device validation throughout, not only at the end. Do not restart the completed logo, basic login UI, dated weight/water pages, plan CRUD or snapshot foundation as if they were unimplemented.
 
@@ -268,7 +286,7 @@ Run relevant regression/compile checks and device validation throughout, not onl
 | Evidence | Main files |
 | --- | --- |
 | Public launch and personal routing | `ContentView.swift`, `AccessViews.swift`, `ProfileViews.swift` |
-| Authentication contract and session gate | `AccountState.swift`, `AccountViews.swift`, `CalorieTrackerApp.swift` |
+| Authentication contract and session gate | `AccountState.swift`, `DeviceAccountProvider.swift`, `GoogleAccountProvider.swift`, `GoogleConfiguration.swift`, `AccountViews.swift`, `CalorieTrackerApp.swift` |
 | Actual persisted models and schema | `Models.swift`, `Diary.swift` |
 | Portion calculations/snapshots and editor limits | `Nutrition.swift`, `NutritionViews.swift`, `MealAndProgressViews.swift` |
 | Profile/plan/measurement editing | `PersonalizationViews.swift`, `CriticalViews.swift` |
@@ -278,7 +296,7 @@ Run relevant regression/compile checks and device validation throughout, not onl
 | Build configuration and packaging | `project.yml`, `.github/workflows/build-ipa.yml`, `scripts/build-trollstore.sh` |
 | Domain regression coverage | `Tests/DiaryCoreTests/` |
 
-This update is documentation only. It does not connect authentication, implement recommendations/AI, rerun the application build or establish new device test results. Existing release evidence is linked above.
+This audit is documentation only. It updates implemented/remaining status against current code; it does not add features, rerun the IPA build or establish new device test results. Latest application build evidence is linked above.
 
 Explicitly outside the initial scope: subscriptions, social feeds, administrator roles, photo-based nutrition estimates, barcode scanning, cloud diary sync and dietary writes to Health. Revisit these only as separately agreed features.
 
@@ -291,57 +309,36 @@ Explicitly outside the initial scope: subscriptions, social feeds, administrator
 Research and document the chosen calorie-estimation method before implementing target estimates. These integration references are not validation of an unimplemented nutrition formula.
 
 
-## 12. Google sign-in implementation — version 0.10.0
+## 12. Remaining pages in implementation order
 
-Provider choice is now Google Sign-In using an iOS OAuth client ID. Added official GoogleSignIn/GoogleSignInSwift 10.0.0 dependencies (iOS 15 minimum), the SDK provider, official button on Login/Register, callback forwarding, non-interactive previous-session restoration, expiry refresh and SDK sign-out. The provider does not collect a Google password or create a separate email/password account. Basic profile/email are used; no journal or Health payload is sent by this adapter.
+Create these pages only after their corresponding models/services and tests are ready. Existing Personal details, Goals, Preferences, login, diary details and history pages should be extended rather than duplicated.
 
-Added public-client-ID configuration through Config/GoogleSignIn.json or the GOOGLE_IOS_CLIENT_ID GitHub Actions variable. The build generator validates input and derives the callback scheme; no client secret is used. Missing/mismatched configuration cannot open a session. Configuration and provider-boundary tests cover unavailable settings, cancellation, restoration and logout.
+| Order | Page / existing page extension | Priority | Required behavior |
+| --- | --- | --- | --- |
+| 1 | Account & security improvements | Critical verification / High implementation | Provider-specific details, shared-journal disclosure, session expectations and accurate password help |
+| 2 | Change password | High | Verify current local password, validate confirmation, save new verifier atomically; never ask for Google password |
+| 3 | Delete local account | High | Recent authentication, clear scope, deliberate confirmation, preserve diary/other accounts unless separately authorized |
+| 4 | Reference nutrition editor | High | Real basis/quantity/unit, source, optional macros and preserved precision |
+| 5 | Choose food / recent foods | High | Actual saved records, search, chosen date/category and empty state |
+| 6 | Portion review | High | Arbitrary supported quantity, computed nutrients, correct unit conversion and explicit Log/Plan |
+| 7 | Goals: estimate review and dated macro targets | High | Documented supported inputs/method, manual alternative, effective date and explicit Apply |
+| 8 | Today: macro summary | High | Known totals plus coverage/missing states; no invented zero values |
+| 9 | What should I eat? | High | Deterministic ranked real meals and explicit no-target/no-candidate states |
+| 10 | Suggestion review | High | Source meal, portion, calculated values, reason, selected day/category and one-time commit |
+| 11 | Planner nutrition editing | High | Reuse portion editor and preserve historical snapshots |
+| 12 | Daily summary / target history | Medium | Effective historical targets, missing-day explanations and inspectable entries |
+| 13 | Recovery archive browser | Medium | Actual files/date/size, validated restore/export, reviewed removal and retention |
+| 14 | External food search/detail | Medium | USDA provenance, serving selection, accurate mapping, caching and offline errors |
+| 15 | AI settings / consent and reviewed suggestion UI | Medium / later | Opt-in sharing, secured adapter, valid source IDs, app-owned arithmetic, cancellation and review |
+| 16 | Favorites, display units, reminders, week planner | Low | Add after reliable core workflows; reminders require opt-in |
 
-**Still blocked for live sign-in:** an actual iOS OAuth client ID for com.personal.CalorieTracker has not been supplied. The checked-in ID is empty, not a fake credential. See Config/README.md for Windows/Cloud setup. Live device/Google consent and Keychain testing remain required, especially on the fake-signed TrollStore IPA. Current SDK credential storage is not proof it works under TrollStore signing.
+### Immediate acceptance checklist
 
-A1 is implemented at the adapter/UI/configuration level but remains blocked on the real client ID and live validation. A2 is partial: SDK Keychain/restore/refresh/sign-out integration exists, but device persistence, account revocation/deletion and a deliberate shared-diary-versus-isolation decision remain open. Existing accounts use one shared on-device diary; no roles or cloud sync have been introduced. Future backend endpoints must independently validate Google ID tokens.
+- [ ] Verify local register/sign-out/relogin and Google sign-in on the actual TrollStore phone.
+- [ ] Add direct local account database/credential/lockout tests; core mock tests alone are insufficient.
+- [ ] Confirm or change the disclosed shared-journal model; test switching identities without data loss.
+- [ ] Fix nutrient edit precision before expanding nutrition editing; add a regression for changing one macro while retaining the others exactly.
+- [ ] Check v0.12.0 UI on a small iPhone, larger Dynamic Type, dark mode, keyboard and VoiceOver; record device/OS results.
+- [ ] Correct outdated setup/privacy/account copy throughout supporting documentation and provider-specific help.
 
-The phase/status tables above describe the pre-Google 0.9.0 audit baseline. This section records the new implementation and its outstanding activation requirements; do not mark authentication live until they pass.
-
-
-## 13. Google OAuth client configured — version 0.10.1
-
-The user supplied an iOS OAuth client ID from Google Cloud. It is now saved in Config/GoogleSignIn.json; the generator derives the matching reversed callback scheme. The default build is no longer missing its client ID. IPA packaging verifies that the built Info.plist contains the configured identifier and callback.
-
-The Google Cloud screenshot states that OAuth access is restricted to test users. Add the intended Google account under Google Auth Platform -> Audience -> Test users before the phone test. Actual consent/callback, Keychain behavior on TrollStore, restoration, refresh and logout still require live device verification; configured credentials/build success are not proof of a successful login. No client secret was requested or embedded.
-
-This supersedes the missing-client-ID activation blocker in section 12. A1 now has its configuration as well as its adapter/UI implementation; live verification remains open. A2 ownership/isolation and account lifecycle follow-up remain unchanged.
-
-
-## 14. TrollStore Keychain repair — version 0.10.2
-
-The user reported the Google SDK Keychain error on a real installation. Code review found that the IPA embedded only HealthKit. TrollStore's source applies its default Keychain identity only if no entitlement dictionary exists, so that fallback does not fill the missing values in this build.
-
-Added an explicit app-scoped application identifier, matching Keychain group and TrollStore signing namespace in both XcodeGen properties and the entitlement source. Preserve HealthKit and keep the existing bundle ID/data container, OAuth configuration and schema. No wildcard, Apple token group, debug entitlement, plaintext credential fallback or broad Keychain cleanup is introduced.
-
-Packaging validates the exact minimal entitlement set before ldid and again after extracting it from the signed executable. Added configuration tests for missing identity, wrong group/bundle, broad grants and extra privileges. Interactive Google login has a temporary default-group Keychain probe with sanitized OSStatus feedback; it does not touch SDK credentials.
-
-Remaining acceptance: install as an update on the user's TrollStore device, complete Google login, confirm relaunch restoration, expiry refresh and sign-out. CI/build verification cannot establish runtime Keychain access. TROLLTROLL is a TrollStore signing namespace, not a real Apple Developer Team ID or Google Cloud Team ID.
-
-
-## 15. Signed-in Profile identity — version 0.10.3
-
-Profile now renders the current authenticated account display name, email, name-derived initials and sign-in provider/status. Google supplies those name/email values through the existing SDK session on interactive sign-in, restoration and refresh. A missing/blank display name falls back to email, not a fabricated user name. Account & security shows the same identity fields.
-
-An existing manually entered diary name is retained and labeled Journal name when different. Identity display does not overwrite the saved profile, measurements, goals or nutrition records and does not request extra Google scopes. Measurement cards wrap for narrower screens. Signed-out Profile still shows Login and logout clears the session identity.
-
-Existing provider lifecycle tests now assert that name/email/provider reach the authenticated session and are cleared on logout. Verify the actual Google account values on the phone after successful login; Keychain/device validation remains separate.
-
-
-## Local email/password accounts — v0.11.0
-
-Login and Register offer local email/password accounts alongside Google. Local account records (ID, name, normalized email, random salt, PBKDF2-HMAC-SHA256 verifier with 600,000 iterations and failed-attempt lockout) are stored in the app-private, device-only Keychain database. Plaintext passwords are never persisted or exported with diary backups. Hashing runs off the main thread; writes must succeed before authentication succeeds. Five failed attempts lock an account for 15 minutes. Registration signs the user in and Profile displays their registered name/email. Local sessions expire after 12 hours and require login again after app restart; Google restoration remains available. Logout preserves accounts and journal.
-
-Limitations: local email ownership is unverified; no email reset, cloud account sync or per-account journal isolation. Every authenticated account still opens the same on-device journal. Keychain/device restore, registration, duplicate email, wrong password, lockout, logout/relogin and Google switching require physical iPhone validation. Do not delete the app or reset journal data to recover a password. Future work: tested account recovery/deletion and explicit journal ownership/isolation.
-
-
-## Interface redesign — v0.12.0
-
-Shared teal/mint palette, cool canvas, typographic headers, refined surfaces and navigation rows apply across public home, onboarding, authentication, tracking, personalization, Health and recovery. Today adds responsive calorie-summary and quick-action layouts. Diary adds meal totals and clearer date/intake hierarchy while preserving swipe deletion and entry editing. Meals uses compact serving cards. Progress uses a seven-day review and explicit missing-entry states; bars are labelled as using the current target. Profile presents account identity and three separate personalization destinations. Login/Register prioritize local forms, with a separate Google option. iOS 15 fallback and native newer navigation remain in place; no persistence schema or nutrition calculation changes.
-
-Validation: configuration/core tests and iOS IPA compilation via CI; visual checks on iPhone (light/dark, larger text, keyboard, small screens, VoiceOver, iOS 15 and newer navigation) remain required because this Windows workspace cannot run an iOS simulator.
+Recommended next implementation slice: account test boundaries + focused lifecycle/UI corrections, then nutrition reference/portion editing. AI/LLM remains a later phase after deterministic recommendations and trusted nutrition data are usable.

@@ -82,7 +82,7 @@ struct LoginScreen: View {
                 Button(action: signIn) { HStack { if account.busy { ProgressView().tint(.white) }; Text(account.busy ? "Logging in…" : "Log in") } }.buttonStyle(PrimaryAction()).disabled(account.busy || email.isEmpty || password.isEmpty).opacity(email.isEmpty || password.isEmpty ? 0.5 : 1)
             }
             AccountAvailability()
-            HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).fontWeight(.semibold) }.font(.subheadline).frame(maxWidth: .infinity)
+            HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)) }.font(.subheadline).frame(maxWidth: .infinity)
             Button("Continue with my local journal") { password = ""; chosen = true; dismiss() }.font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 10)
         }.navigationTitle("Log in").navigationBarTitleDisplayMode(.inline).onDisappear { password = "" }
     }

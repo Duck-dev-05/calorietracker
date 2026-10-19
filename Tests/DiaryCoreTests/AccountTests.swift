@@ -2,6 +2,14 @@ import XCTest
 @testable import DiaryCore
 
 final class AccountTests: XCTestCase {
+    func testLocalProfileIdentityUsesRegisteredDetails() {
+        let session = AccountSession(id: "local:test", email: "user@example.test", name: "Taylor Smith", expiresAt: .distantFuture)
+        XCTAssertTrue(AccessPolicy.isAuthenticated(session))
+        XCTAssertEqual(session.displayName, "Taylor Smith")
+        XCTAssertEqual(session.initials, "TS")
+        XCTAssertEqual(session.providerName, "Local account")
+        XCTAssertEqual(session.email, "user@example.test")
+    }
     func testEmailValidationDoesNotAcceptMalformedInput() {
         XCTAssertTrue(AccountValidation.email(" user@example.test "))
         XCTAssertTrue(AccountValidation.email("name+tag@example.test"))

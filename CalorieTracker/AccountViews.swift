@@ -71,12 +71,13 @@ struct LoginScreen: View {
             GoogleAccountAction()
             if account.supportsPassword {
             Surface {
+                SectionHeading(title: "Log in with email", subtitle: "Use the local account you registered on this iPhone.")
                 Text("EMAIL").font(.caption.bold()).foregroundStyle(.secondary)
                 AccountEmailField(text: $email)
                 if attempted && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
                 Text("PASSWORD").font(.caption.bold()).foregroundStyle(.secondary)
                 PasswordInput(title: "Password", text: $password)
-                HStack { Spacer(); NavigationLink("Forgot password?", destination: ResetPasswordScreen()).font(.subheadline) }
+                HStack { Spacer(); NavigationLink("Password help", destination: ResetPasswordScreen()).font(.subheadline) }
                 if let error { Label(error, systemImage: "exclamationmark.circle").font(.footnote).foregroundStyle(.red) }
                 Button(action: signIn) { HStack { if account.busy { ProgressView().tint(.white) }; Text(account.busy ? "Logging in…" : "Log in") } }.buttonStyle(PrimaryAction()).disabled(account.busy || email.isEmpty || password.isEmpty).opacity(email.isEmpty || password.isEmpty ? 0.5 : 1)
             }
@@ -105,11 +106,11 @@ struct RegisterScreen: View {
     private var valid: Bool { AccountValidation.registration(name: name, email: email, password: password, confirmation: confirmation) }
     var body: some View {
         PageCanvas {
-            AccountHeader(title: "Make space for you.", subtitle: "Get started with your Google account. Your journal stays on this device.")
+            AccountHeader(title: "Make space for you.", subtitle: "Create an account on this iPhone or continue with Google. Your journal stays on this device.")
             GoogleAccountAction()
             if account.supportsPassword {
             Surface {
-                SectionHeading(title: "Your account details")
+                SectionHeading(title: "Create a local account", subtitle: "Available only on this iPhone. Email ownership is not verified. Password recovery and account sync are unavailable.")
                 TextField("Your name", text: $name).accessibilityLabel("Your name").textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
                 AccountEmailField(text: $email)
                 if !email.isEmpty && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
@@ -142,19 +143,12 @@ struct ResetPasswordScreen: View {
     var body: some View {
         PageCanvas {
             AccountHeader(title: "Let's get you back in.", subtitle: "Enter the email associated with your account.")
-            if account.supportsPassword {
             Surface {
-                AccountEmailField(text: $email)
-                if let feedback { Text(feedback).font(.footnote).foregroundStyle(.secondary) }
-                Button(account.busy ? "Requesting…" : "Request reset email") {
-                    Task { do { try await account.resetPassword(email: email); feedback = "If an account exists for this email, follow the service's reset instructions." } catch { feedback = error.localizedDescription } }
-                }.buttonStyle(PrimaryAction()).disabled(!AccountValidation.email(email) || account.busy)
+                SectionHeading(title: "Local account password", subtitle: "Local accounts have no email recovery service. Use the password you chose when registering on this iPhone. Reinstalling the app is not a password reset.")
+                Text("Your Google password is managed by Google.").font(.subheadline)
+                Link("Recover your Google account", destination: URL(string: "https://accounts.google.com/signin/recovery")!)
             }
-            AccountAvailability()
-            } else {
-                Surface { Text("Google manages your password. Use Google Account recovery if you cannot sign in; Nourish never asks for your Google password.").font(.subheadline); Link("Recover your Google account", destination: URL(string: "https://accounts.google.com/signin/recovery")!) }
-                GoogleAccountAction()
-            }
+
         }.navigationTitle("Reset password").navigationBarTitleDisplayMode(.inline)
     }
 }

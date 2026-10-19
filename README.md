@@ -132,3 +132,10 @@ Update the existing installation through TrollStore to preserve diary data. The 
 ### Version 0.10.3 — account details in Profile
 
 After Google sign-in, Profile shows the account name, email, initials and signed-in provider. The same details appear in Account & security. Missing names fall back to email; any manual journal name stays separate. Measurements/goals remain your saved values and are not overwritten by Google profile data.
+
+
+## Local email/password accounts — v0.11.0
+
+Login and Register offer local email/password accounts alongside Google. Local account records (ID, name, normalized email, random salt, PBKDF2-HMAC-SHA256 verifier with 600,000 iterations and failed-attempt lockout) are stored in the app-private, device-only Keychain database. Plaintext passwords are never persisted or exported with diary backups. Hashing runs off the main thread; writes must succeed before authentication succeeds. Five failed attempts lock an account for 15 minutes. Registration signs the user in and Profile displays their registered name/email. Local sessions expire after 12 hours and require login again after app restart; Google restoration remains available. Logout preserves accounts and journal.
+
+Limitations: local email ownership is unverified; no email reset, cloud account sync or per-account journal isolation. Every authenticated account still opens the same on-device journal. Keychain/device restore, registration, duplicate email, wrong password, lockout, logout/relogin and Google switching require physical iPhone validation. Do not delete the app or reset journal data to recover a password. Future work: tested account recovery/deletion and explicit journal ownership/isolation.

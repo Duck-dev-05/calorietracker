@@ -7,7 +7,7 @@ import GoogleSignIn
     @StateObject private var account: AccountStore
     init() {
         if #unavailable(iOS 16.0) { UITableView.appearance().backgroundColor = UIColor(NourishStyle.canvas) }
-        let account = AccountStore(provider: GoogleAccountProvider())
+        let account = AccountStore(provider: DeviceAccountProvider())
         _account = StateObject(wrappedValue: account)
         let diary = Diary(account: account)
         _diary = StateObject(wrappedValue: diary)

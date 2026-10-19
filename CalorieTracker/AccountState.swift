@@ -31,7 +31,7 @@ struct AccountSession {
         guard !value.isEmpty else { return String(email.prefix(1)).uppercased() }
         return value.split(whereSeparator: { $0.isWhitespace }).prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
     }
-    var providerName: String { id.hasPrefix("google:") ? "Google" : "Account" }
+    var providerName: String { id.hasPrefix("google:") ? "Google" : (id.hasPrefix("local:") ? "Local account" : "Account") }
 }
 struct AccessPolicy {
     static func isAuthenticated(_ session: AccountSession?, now: Date = Date()) -> Bool {
@@ -111,7 +111,7 @@ struct AccountUnavailable: LocalizedError {
             restorationError = nil
         } catch {
             guard generation == requestGeneration else { return }
-            restorationError = "Your previous Google session could not be restored. Sign in again."
+            restorationError = "Your previous session could not be restored. Sign in again."
         }
     }
     var isAuthenticated: Bool { AccessPolicy.isAuthenticated(session) }

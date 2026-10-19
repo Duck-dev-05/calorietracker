@@ -331,3 +331,10 @@ Profile now renders the current authenticated account display name, email, name-
 An existing manually entered diary name is retained and labeled Journal name when different. Identity display does not overwrite the saved profile, measurements, goals or nutrition records and does not request extra Google scopes. Measurement cards wrap for narrower screens. Signed-out Profile still shows Login and logout clears the session identity.
 
 Existing provider lifecycle tests now assert that name/email/provider reach the authenticated session and are cleared on logout. Verify the actual Google account values on the phone after successful login; Keychain/device validation remains separate.
+
+
+## Local email/password accounts — v0.11.0
+
+Login and Register offer local email/password accounts alongside Google. Local account records (ID, name, normalized email, random salt, PBKDF2-HMAC-SHA256 verifier with 600,000 iterations and failed-attempt lockout) are stored in the app-private, device-only Keychain database. Plaintext passwords are never persisted or exported with diary backups. Hashing runs off the main thread; writes must succeed before authentication succeeds. Five failed attempts lock an account for 15 minutes. Registration signs the user in and Profile displays their registered name/email. Local sessions expire after 12 hours and require login again after app restart; Google restoration remains available. Logout preserves accounts and journal.
+
+Limitations: local email ownership is unverified; no email reset, cloud account sync or per-account journal isolation. Every authenticated account still opens the same on-device journal. Keychain/device restore, registration, duplicate email, wrong password, lockout, logout/relogin and Google switching require physical iPhone validation. Do not delete the app or reset journal data to recover a password. Future work: tested account recovery/deletion and explicit journal ownership/isolation.

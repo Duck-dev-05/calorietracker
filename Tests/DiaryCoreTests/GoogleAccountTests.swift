@@ -36,9 +36,12 @@ final class GoogleAccountTests: XCTestCase {
         try await account.signInWithGoogle()
         await MainActor.run {
             XCTAssertTrue(account.isAuthenticated); XCTAssertFalse(account.supportsPassword)
+            XCTAssertEqual(account.session?.name, "User")
+            XCTAssertEqual(account.session?.email, "user@example.test")
+            XCTAssertEqual(account.session?.providerName, "Google")
             XCTAssertEqual(provider.googleCalls, 1)
             account.endLocalSession()
-            XCTAssertFalse(account.isAuthenticated); XCTAssertEqual(provider.signOutCalls, 1)
+            XCTAssertFalse(account.isAuthenticated); XCTAssertNil(account.session); XCTAssertEqual(provider.signOutCalls, 1)
         }
     }
     func testGoogleCancellationDoesNotUnlock() async {

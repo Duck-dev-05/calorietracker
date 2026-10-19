@@ -127,3 +127,8 @@ Google Cloud currently restricts OAuth to test users: add your sign-in email und
 The signing configuration now includes an explicit app-only Keychain group and matching TrollStore application identity, retaining HealthKit. Packaging validates the generated and extracted entitlements and rejects broad/unrelated grants. Google sign-in checks default Keychain write/read/delete access before starting OAuth and reports a status code if access still fails.
 
 Update the existing installation through TrollStore to preserve diary data. The bundle ID, journal schema and Google client ID remain unchanged. Verify sign-in and restoration on the phone; the build cannot prove device Keychain access.
+
+
+### Version 0.10.3 — account details in Profile
+
+After Google sign-in, Profile shows the account name, email, initials and signed-in provider. The same details appear in Account & security. Missing names fall back to email; any manual journal name stays separate. Measurements/goals remain your saved values and are not overwritten by Google profile data.

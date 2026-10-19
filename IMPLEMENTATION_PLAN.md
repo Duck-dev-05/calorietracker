@@ -322,3 +322,12 @@ Added an explicit app-scoped application identifier, matching Keychain group and
 Packaging validates the exact minimal entitlement set before ldid and again after extracting it from the signed executable. Added configuration tests for missing identity, wrong group/bundle, broad grants and extra privileges. Interactive Google login has a temporary default-group Keychain probe with sanitized OSStatus feedback; it does not touch SDK credentials.
 
 Remaining acceptance: install as an update on the user's TrollStore device, complete Google login, confirm relaunch restoration, expiry refresh and sign-out. CI/build verification cannot establish runtime Keychain access. TROLLTROLL is a TrollStore signing namespace, not a real Apple Developer Team ID or Google Cloud Team ID.
+
+
+## 15. Signed-in Profile identity — version 0.10.3
+
+Profile now renders the current authenticated account display name, email, name-derived initials and sign-in provider/status. Google supplies those name/email values through the existing SDK session on interactive sign-in, restoration and refresh. A missing/blank display name falls back to email, not a fabricated user name. Account & security shows the same identity fields.
+
+An existing manually entered diary name is retained and labeled Journal name when different. Identity display does not overwrite the saved profile, measurements, goals or nutrition records and does not request extra Google scopes. Measurement cards wrap for narrower screens. Signed-out Profile still shows Login and logout clears the session identity.
+
+Existing provider lifecycle tests now assert that name/email/provider reach the authenticated session and are cleared on logout. Verify the actual Google account values on the phone after successful login; Keychain/device validation remains separate.

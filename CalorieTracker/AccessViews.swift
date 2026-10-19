@@ -6,7 +6,11 @@ struct AccountSecurityScreen: View {
         Form {
             Section("Session") {
                 ValueRow(title: "Status", value: account.isAuthenticated ? "Signed in" : "Signed out")
-                ValueRow(title: "Account", value: account.session?.email ?? "Not signed in")
+                if let session = account.session, account.isAuthenticated {
+                    ValueRow(title: "Name", value: session.displayName)
+                    ValueRow(title: "Email", value: session.email)
+                    ValueRow(title: "Sign-in provider", value: session.providerName)
+                }
                 if let expiry = account.session?.expiresAt { Text("Session expires: \(expiry.formatted())").font(.footnote) }
             }
             Section {

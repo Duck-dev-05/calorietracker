@@ -15,14 +15,26 @@ struct ProfileScreen: View {
             PageIntro(eyebrow: "Your space", title: "Wellness, your way.", detail: "A plan that belongs to you.")
             Surface {
                 HStack(spacing: 16) {
-                    BrandMark(size: 64)
-                    VStack(alignment: .leading, spacing: 6) { Text(diary.profile.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Your profile").font(.system(.title2, design: .rounded).weight(.bold)); Pill(text: diary.profile.goal.isEmpty ? "Goal not set" : diary.profile.goal) }
+                    Text(account.session?.initials ?? "").font(.system(.title2, design: .rounded).weight(.bold))
+                        .foregroundStyle(NourishStyle.accent).frame(width: 64, height: 64)
+                        .background(NourishStyle.accent.opacity(0.12), in: Circle()).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(account.session?.displayName ?? "Your account").font(.system(.title2, design: .rounded).weight(.bold)).fixedSize(horizontal: false, vertical: true)
+                        if let session = account.session {
+                            Text(session.email).font(.subheadline).foregroundStyle(.secondary).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                            Label("Signed in with \(session.providerName)", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(NourishStyle.accent)
+                        }
+                    }
                 }
+                if let name = diary.profile.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty, name != account.session?.displayName {
+                    ValueRow(title: "Journal name", value: name)
+                }
+                Pill(text: diary.profile.goal.isEmpty ? "Goal not set" : diary.profile.goal)
                 Divider()
-                HStack {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), alignment: .leading)], alignment: .leading, spacing: 18) {
                     measurement("Height", diary.profile.height.map { String(format: "%.0f cm", $0) } ?? "Not set")
-                    Spacer(); measurement("Weight", diary.profile.weight.map { String(format: "%.1f kg", $0) } ?? "Not set")
-                    Spacer(); measurement("Target", diary.profile.target.map { "\(Int($0)) kcal" } ?? "Not set")
+                    measurement("Weight", diary.profile.weight.map { String(format: "%.1f kg", $0) } ?? "Not set")
+                    measurement("Target", diary.profile.target.map { "\(Int($0)) kcal" } ?? "Not set")
                 }
             }
             Surface {

@@ -22,6 +22,16 @@ struct AccountSession {
     let email: String
     let name: String?
     var expiresAt: Date? = nil
+    var displayName: String {
+        let value = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? email : value
+    }
+    var initials: String {
+        let value = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !value.isEmpty else { return String(email.prefix(1)).uppercased() }
+        return value.split(whereSeparator: { $0.isWhitespace }).prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
+    }
+    var providerName: String { id.hasPrefix("google:") ? "Google" : "Account" }
 }
 struct AccessPolicy {
     static func isAuthenticated(_ session: AccountSession?, now: Date = Date()) -> Bool {

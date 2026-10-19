@@ -330,3 +330,10 @@ User clarification: access depends only on whether the user is signed in. Local 
 Release limitation: production AccountProvider remains unconfigured. This build intentionally stays locked until a real authentication provider is connected; no fake or local-password login is introduced. Provider session persistence/refresh, Keychain storage and server token revocation must be implemented with that integration. UI and store tests use isolated test-only provider fixtures, never production identities.
 
 Verification: signed-out access denied at both navigation and store boundaries; successful provider login/registration unlocks; expired/invalid sessions reject access; logout preserves file bytes and relocks; existing migration/nutrition tests run with explicitly authenticated test fixtures.
+
+
+## 12. Profile authentication routing — version 0.8.2
+
+Signed-out application entry now opens Login directly, with registration and password-reset links. ProfileScreen independently renders LoginScreen unless the session is valid; profile data and personal-detail navigation are created only in the signed-in branch. The signed-in Account row opens Account & security, including Sign out. The existing app-wide login gate remains enabled; no guest bypass is added.
+
+Production identity authentication still requires a connected provider.

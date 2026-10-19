@@ -15,7 +15,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if !account.isAuthenticated {
-                AdaptiveNavigation { AccountWelcomeScreen() }
+                AdaptiveNavigation { LoginScreen() }
             } else if diary.storageBlocked {
                 AdaptiveNavigation { StorageRecoveryScreen() }
             } else if onboarded {

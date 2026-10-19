@@ -4,6 +4,12 @@ struct ProfileScreen: View {
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var account: AccountStore
     var body: some View {
+        Group {
+            if account.isAuthenticated { signedInProfile }
+            else { LoginScreen() }
+        }
+    }
+    private var signedInProfile: some View {
         PageCanvas {
             PageIntro(eyebrow: "Your space", title: "Wellness, your way.", detail: "A plan that belongs to you.")
             Surface {
@@ -19,7 +25,7 @@ struct ProfileScreen: View {
                 }
             }
             Surface {
-                NavigationLink(destination: AccountWelcomeScreen()) {
+                NavigationLink(destination: AccountSecurityScreen()) {
                     RouteRow(title: "Account", subtitle: account.session?.email ?? "Sign in to unlock your journal", icon: "person.crop.circle.badge.checkmark")
                 }.buttonStyle(.plain)
             }

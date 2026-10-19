@@ -82,6 +82,7 @@ struct PersonalDetailsScreen: View {
     @State private var activity = "Not specified"
     @State private var loggingWeight = false
     @State private var weightBeforeLogging: Double?
+    @State private var weightAtLoad: Double?
     @State private var loaded = false
     @FocusState private var textFocused: Bool
     private let activities = ["Not specified", "Mostly seated", "Some daily movement", "Regular exercise", "Very active days"]
@@ -119,7 +120,7 @@ struct PersonalDetailsScreen: View {
             EditorNote(text: "Age and activity add context to your profile. Your daily calorie target is still set manually.")
             EditorError()
         }
-        .sheet(isPresented: $loggingWeight, onDismiss: { if diary.profile.weight != weightBeforeLogging { weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? "" } }) { WeightLogScreen().adaptiveEntrySheet() }
+        .sheet(isPresented: $loggingWeight, onDismiss: { if diary.profile.weight != weightBeforeLogging { weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? ""; weightAtLoad = diary.profile.weight } }) { WeightLogScreen().adaptiveEntrySheet() }
         .toolbar { ToolbarItemGroup(placement: .keyboard) { if textFocused { Spacer(); Button("Done") { textFocused = false } } } }
         .onAppear(perform: load)
     }
@@ -153,7 +154,13 @@ struct PersonalDetailsScreen: View {
         }
     }
     private func load() {
-        guard !loaded else { return }
+        if loaded {
+            if NumberDraftField.value(weight, range: 20...400) == weightAtLoad && diary.profile.weight != weightAtLoad {
+                weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? ""; weightAtLoad = diary.profile.weight
+            }
+            return
+        }
+        weightAtLoad = diary.profile.weight
         let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height?.formatted(.number.grouping(.never)) ?? ""; weight = p.weight?.formatted(.number.grouping(.never)) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; loaded = true
     }
     private func save() {

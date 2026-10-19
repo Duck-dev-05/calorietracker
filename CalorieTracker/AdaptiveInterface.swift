@@ -6,9 +6,9 @@ struct AdaptiveNavigation<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     @ViewBuilder var body: some View {
         if #available(iOS 16.0, *) {
-            NavigationStack { content }
+            NavigationStack { content }.modifier(NourishScreenChrome())
         } else {
-            NavigationView { content }.navigationViewStyle(.stack)
+            NavigationView { content }.navigationViewStyle(.stack).modifier(NourishScreenChrome())
         }
     }
 }
@@ -44,7 +44,9 @@ struct AdaptiveEntrySheet: ViewModifier {
 struct AdaptiveScroll: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 16.4, *) {
-            content.scrollBounceBehavior(.basedOnSize)
+            content.scrollBounceBehavior(.basedOnSize).scrollDismissesKeyboard(.interactively)
+        } else if #available(iOS 16.0, *) {
+            content.scrollDismissesKeyboard(.interactively)
         } else {
             content
         }
@@ -84,6 +86,18 @@ struct FollowCurrentDay: ViewModifier {
             let following = Calendar.current.isDate(selection, inSameDayAs: previousNow)
             previousNow = newNow
             if following { selection = newNow }
+        }
+    }
+}
+
+
+/// Shared Form/List canvas; newer APIs stay guarded for the iOS 15 build.
+struct NourishScreenChrome: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.scrollContentBackground(.hidden).background(NourishStyle.canvas.ignoresSafeArea())
+        } else {
+            content.background(NourishStyle.canvas.ignoresSafeArea())
         }
     }
 }

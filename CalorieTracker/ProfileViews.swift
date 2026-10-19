@@ -11,10 +11,11 @@ struct ProfileScreen: View {
     }
     private var signedInProfile: some View {
         PageCanvas {
+            BrandLockup()
             PageIntro(eyebrow: "Your space", title: "Wellness, your way.", detail: "A plan that belongs to you.")
             Surface {
                 HStack(spacing: 16) {
-                    ZStack { Circle().fill(NourishStyle.accent.opacity(0.12)).frame(width: 64, height: 64); Image(systemName: "person.fill").font(.title).foregroundStyle(NourishStyle.accent) }
+                    BrandMark(size: 64)
                     VStack(alignment: .leading, spacing: 6) { Text(diary.profile.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Your profile").font(.system(.title2, design: .rounded).weight(.bold)); Pill(text: diary.profile.goal.isEmpty ? "Goal not set" : diary.profile.goal) }
                 }
                 Divider()
@@ -97,6 +98,7 @@ struct SettingsScreen: View {
                 Button("Review welcome setup") { replay = true }
             }
             Section("Application") {
+                BrandLockup().padding(.vertical, 8)
                 ValueRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unavailable")
                 ValueRow(title: "Minimum iOS", value: "15.0")
                 NavigationLink("Help & about", destination: HelpScreen())

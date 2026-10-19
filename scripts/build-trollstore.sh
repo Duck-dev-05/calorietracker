@@ -18,6 +18,10 @@ test -d "$APP"
 EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
 MINIMUM=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
 test "$MINIMUM" = '15.0'
+# Verify the branded icon and compiled asset catalog are present in the actual app.
+ICON_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$APP/Info.plist")
+test "$ICON_NAME" = 'AppIcon'
+test -f "$APP/Assets.car"
 # Embed only the public HealthKit entitlement. TrollStore preserves it when installing.
 ldid -SCalorieTracker/CalorieTracker.entitlements "$APP/$EXECUTABLE"
 ldid -e "$APP/$EXECUTABLE" > "$BUILD_DIR/embedded-entitlements.plist"

@@ -97,3 +97,10 @@ The authentication gate supersedes earlier optional-login/guest instructions in 
 ### Version 0.8.3 — open Home before sign-in
 
 Launch shows the public Today welcome page and tabs without redirecting to Login. Login appears when opening a protected tab/Profile or choosing Sign in. Personal journal data and actions remain locked until a valid provider session exists. This supersedes the launch routing in 0.8.1–0.8.2; authentication is still unconfigured.
+
+
+### Version 0.9.0 — Nourish visual identity
+
+Shared forest/ivory/lime styling, a new public welcome hero, consistent page/card/button styling, adaptive metric grids and branded Home/account/tracking/profile/onboarding pages. New logo assets are in Brand/; the full generation prompt is in Brand/README.md. Assets.xcassets includes the in-app mark and all required iPhone app icon sizes. IPA packaging checks the icon metadata and compiled catalog.
+
+Launch and authentication behavior, journal data and nutrition calculations are unchanged. Device visual checks remain necessary.

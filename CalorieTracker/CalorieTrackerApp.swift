@@ -5,6 +5,7 @@ import SwiftUI
     @StateObject private var health: HealthService
     @StateObject private var account: AccountStore
     init() {
+        if #unavailable(iOS 16.0) { UITableView.appearance().backgroundColor = UIColor(NourishStyle.canvas) }
         let account = AccountStore(provider: UnconfiguredAccountProvider())
         _account = StateObject(wrappedValue: account)
         let diary = Diary(account: account)

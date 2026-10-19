@@ -344,3 +344,14 @@ Production identity authentication still requires a connected provider.
 Supersedes the app-wide launch redirect: opening the application now shows a public Today welcome page and the main tab bar, not Login. Sign-in and registration are optional actions from that public page. Selecting Diary, Meals, Progress or You while signed out shows Login instead of personal content. Profile retains its own session guard. Actual journal reads/writes, backups and Health access remain denied without a valid session.
 
 After successful sign-in, show existing onboarding if incomplete, otherwise show personal pages. Signed-out onboarding cannot attempt to save a profile. No personal totals or fake records appear on the public home. Login still requires a real connected identity provider.
+
+
+## 14. Shared UI and brand refresh — version 0.9.0
+
+Refactored the shared SwiftUI design system: warm ivory/dark canvases, forest/lime accents, consistent card edges, typography, spacing and enabled/pressed button states. Native navigation/tabs remain version-aware. Form/List canvases use guarded iOS 16 APIs with an iOS 15 fallback; newer scroll views dismiss the keyboard interactively.
+
+Public Home has a branded editorial welcome hero and non-interactive feature descriptions without misleading chevrons. Login/register share a brand header and action styles. Dashboard, Diary, Meals, Progress, Profile, onboarding and Settings use the shared logo/components. Dashboard metric cards and meal badges adapt their columns to available width. Existing Health/recovery/personal editors inherit shared surfaces and navigation styling.
+
+Added the production logo master and source in Brand/, a NourishMark image set, complete iPhone AppIcon sizes and the Xcode asset-catalog setting. Build packaging now checks AppIcon metadata and Assets.car. The full generation prompt and built-in imagegen provenance are recorded in Brand/README.md.
+
+Behavior retained: public Home at launch, protected personal pages, no mock journal data, unchanged nutrition calculations/schema and existing storage/recovery guarantees. Authentication remains unconfigured. Device visual QA of small screens, Dynamic Type, VoiceOver, dark mode and each supported iOS version is still required; CI compilation does not prove those layouts were visually tested.

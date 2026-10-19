@@ -22,7 +22,7 @@ struct OnboardingView: View {
                     ZStack {
                         Circle().fill(NourishStyle.accent.opacity(0.08)).frame(width: 210, height: 210)
                         Circle().fill(NourishStyle.accent.opacity(0.08)).frame(width: 154, height: 154)
-                        Image(systemName: "leaf.fill").font(.system(size: 64, weight: .light)).foregroundStyle(NourishStyle.accent)
+                        BrandMark(size: 126)
                     }.accessibilityHidden(true)
                     Text("Feel good.\nOne day at a time.").font(.system(.largeTitle, design: .rounded).weight(.bold)).multilineTextAlignment(.center)
                     Text("Know what you eat, explore meal ideas and keep your daily activity in view.").foregroundStyle(.secondary).multilineTextAlignment(.center).padding()
@@ -84,6 +84,7 @@ struct MealsView: View {
     }
     var body: some View {
         PageCanvas {
+            BrandLockup()
             PageIntro(eyebrow: "Your meals", title: "A collection of your own.", detail: "Save meals you actually eat, with ingredients and calories you provide.")
             Button { adding = true } label: { Label("Create a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
             NavigationLink(destination: MealPlanScreen()) { Surface { RouteRow(title: "Your meal planner", subtitle: "Plan from your saved meals", icon: "calendar") } }.buttonStyle(.plain)
@@ -99,7 +100,7 @@ struct MealsView: View {
                         MealArtwork(meal: meal)
                         Text(meal.name).font(.headline).foregroundStyle(.primary)
                         Text(meal.detail).font(.subheadline).foregroundStyle(.secondary)
-                        HStack { Pill(text: "\(meal.calories) kcal / serving"); if meal.vegetarian { Pill(text: "Vegetarian") } }
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 130))], alignment: .leading) { Pill(text: "\(meal.calories) kcal / serving"); if meal.vegetarian { Pill(text: "Vegetarian") } }
                     }
                 }.buttonStyle(.plain)
             }
@@ -212,6 +213,7 @@ struct ProgressScreen: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
+                    BrandLockup()
                     Text("ONE DAY AT A TIME").font(.caption2.bold()).tracking(2).foregroundStyle(NourishStyle.accent)
                     Text(diary.foods.isEmpty ? "Your progress starts here." : "Look how far you've come.").font(.system(.title2, design: .rounded).weight(.bold))
                     HStack(alignment: .firstTextBaseline) {

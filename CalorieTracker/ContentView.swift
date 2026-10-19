@@ -71,6 +71,7 @@ struct DashboardView: View {
     private var water: Int { diary.water.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.milliliters } }
     var body: some View {
         PageCanvas {
+            BrandLockup()
             PageIntro(eyebrow: diary.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), title: diary.profile.name.flatMap { $0.isEmpty ? nil : "Hello, \($0)." } ?? "A little more balance.", detail: "Small choices. A healthier everyday.")
             VStack(spacing: 20) {
                 HStack { Label("Daily nourishment", systemImage: "sparkles").font(.subheadline.weight(.semibold)); Spacer(); Text("TODAY").font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.7)) }
@@ -81,11 +82,11 @@ struct DashboardView: View {
                     balance("DAILY TARGET", diary.profile.target.map { "\(Int($0))" } ?? "—")
                 }
                 if let remaining = diary.remaining, remaining < 0 { Text("\(-remaining) kcal above today's target").font(.footnote).foregroundStyle(.white.opacity(0.85)) }
-            }.padding(24).foregroundStyle(.white).background(LinearGradient(colors: [Color(red: 0.19, green: 0.36, blue: 0.27), Color(red: 0.09, green: 0.22, blue: 0.17)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 30))
+            }.padding(24).foregroundStyle(.white).background(LinearGradient(colors: [NourishStyle.forest, Color(red: 0.07, green: 0.19, blue: 0.15)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 30))
             if diary.profile.target == nil { NavigationLink(destination: GoalsScreen()) { Label("Set your calorie target", systemImage: "target") } }
             Button { adding = true } label: { Label("Log a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
             SectionHeading(title: "Your daily rhythm", subtitle: "Movement and hydration, at a glance")
-            HStack(alignment: .top, spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], alignment: .leading, spacing: 12) {
                 NavigationLink(destination: HealthMetricScreen(metric: .steps)) { stat("Steps", health.steps.map { Int($0).formatted() } ?? "—", "figure.walk", NourishStyle.accent) }.buttonStyle(.plain)
                 NavigationLink(destination: HealthMetricScreen(metric: .activeEnergy)) { stat("Active kcal", health.activeEnergy.map { Int($0).formatted() } ?? "—", "flame.fill", NourishStyle.peach) }.buttonStyle(.plain)
             }
@@ -123,6 +124,7 @@ struct DiaryView: View {
     var body: some View {
         List {
             Section {
+                BrandLockup().padding(.vertical, 8)
                 DatePicker("Day", selection: $date, in: ...Date(), displayedComponents: .date)
                 HStack {
                     VStack(alignment: .leading, spacing: 4) { Text("DAILY INTAKE").font(.caption2.bold()).tracking(1.5).foregroundStyle(.secondary); Text("\(entries.reduce(0) { $0 + $1.calories }) kcal").font(.system(.title, design: .rounded).weight(.bold)) }

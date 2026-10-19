@@ -31,20 +31,26 @@ struct SignInRequired<Content: View>: View {
 struct VisitorHomeScreen: View {
     var body: some View {
         PageCanvas {
-            PageIntro(eyebrow: "Welcome to Nourish", title: "A little more balance.", detail: "Your space for meals, movement and everyday progress.")
+            BrandLockup().padding(.vertical, 8)
+            VStack(alignment: .leading, spacing: 22) {
+                HStack { Text("A LITTLE MORE BALANCE").font(.caption.weight(.semibold)).tracking(1.5); Spacer(); Image(systemName: "sun.max") }.foregroundStyle(NourishStyle.lime)
+                Text("Good habits.\nYour own pace.").font(.system(.largeTitle, design: .rounded).weight(.bold)).tracking(-0.8).fixedSize(horizontal: false, vertical: true)
+                Text("Make room for meals, movement and a healthier everyday.").font(.subheadline).lineSpacing(3).foregroundStyle(Color.white.opacity(0.8))
+                BrandMark(size: 120).frame(maxWidth: .infinity).padding(.vertical, 12)
+                Label("A personal journal, made for you", systemImage: "lock.shield").font(.caption).foregroundStyle(Color.white.opacity(0.8))
+            }.padding(26).foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading).background(NourishStyle.forest, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+            SectionHeading(title: "Meet your daily rhythm", subtitle: "Simple tools for the things that add up.")
             Surface {
-                IconTile(icon: "leaf.fill")
-                SectionHeading(title: "Make each day your own", subtitle: "Keep a food diary, save your meals and follow your progress in one place.")
-                Text("Sign in whenever you're ready to open your personal journal. Your existing entries stay private while you're signed out.").font(.subheadline).foregroundStyle(.secondary)
-                NavigationLink(destination: LoginScreen()) { Text("Sign in").frame(maxWidth: .infinity).padding(.vertical, 12) }.buttonStyle(.borderedProminent)
-                NavigationLink("Create an account", destination: RegisterScreen())
+                RouteRow(title: "Food, thoughtfully logged", subtitle: "Keep meals, portions and nutrition in one place", icon: "fork.knife", showsChevron: false)
+                Divider()
+                RouteRow(title: "Progress, at your pace", subtitle: "Follow the measurements you choose to record", icon: "chart.line.uptrend.xyaxis", color: NourishStyle.peach, showsChevron: false)
+                Divider()
+                RouteRow(title: "Private by default", subtitle: "Your personal pages stay locked until you sign in", icon: "lock.shield", color: NourishStyle.blue, showsChevron: false)
             }
-            Surface {
-                RouteRow(title: "Your meals", subtitle: "Record food and portions you actually eat", icon: "fork.knife")
-                Divider()
-                RouteRow(title: "Your progress", subtitle: "Keep your measurements and journal together", icon: "chart.line.uptrend.xyaxis")
-                Divider()
-                RouteRow(title: "Your privacy", subtitle: "Personal pages open after sign-in", icon: "lock.shield")
+            VStack(spacing: 12) {
+                NavigationLink("Sign in to your journal", destination: LoginScreen()).buttonStyle(PrimaryAction())
+                NavigationLink("Create an account", destination: RegisterScreen()).buttonStyle(SecondaryAction())
+                Text("Already have entries? They stay on this device.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }.navigationTitle("Nourish").navigationBarTitleDisplayMode(.inline)
     }

@@ -5,9 +5,9 @@ private struct AccountHeader: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 10) { Image(systemName: "leaf.fill").font(.title2); Text("NOURISH").font(.caption.bold()).tracking(3) }.foregroundStyle(NourishStyle.accent)
+            BrandLockup().padding(.bottom, 16)
             Text(title).font(.system(.largeTitle, design: .rounded).weight(.bold)).fixedSize(horizontal: false, vertical: true)
-            Text(subtitle).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
         }.padding(.vertical, 10)
     }
 }
@@ -48,8 +48,8 @@ struct AccountWelcomeScreen: View {
             Surface {
                 IconTile(icon: "person.crop.circle")
                 SectionHeading(title: "Welcome to Nourish", subtitle: "Sign in or register to unlock your journal")
-                NavigationLink(destination: LoginScreen()) { Text("Log in").frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(Color(red: 0.16, green: 0.37, blue: 0.25), in: RoundedRectangle(cornerRadius: 18)) }.buttonStyle(.plain)
-                NavigationLink(destination: RegisterScreen()) { Text("Create an account").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14) }.buttonStyle(.bordered)
+                NavigationLink("Log in", destination: LoginScreen()).buttonStyle(PrimaryAction())
+                NavigationLink("Create an account", destination: RegisterScreen()).buttonStyle(SecondaryAction())
                 AccountAvailability()
             }
             Label("Your existing local diary stays on this device.", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
@@ -105,7 +105,7 @@ struct RegisterScreen: View {
             AccountHeader(title: "Make space for you.", subtitle: "Create an account to securely access your journal once the account service is connected.")
             Surface {
                 SectionHeading(title: "Your account details")
-                TextField("Your name", text: $name).textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
+                TextField("Your name", text: $name).accessibilityLabel("Your name").textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
                 AccountEmailField(text: $email)
                 if !email.isEmpty && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
                 PasswordInput(title: "Create password", text: $password, newPassword: true)

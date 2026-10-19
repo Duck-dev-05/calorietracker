@@ -92,3 +92,8 @@ The role model introduced in 0.8.0 has been removed. Access has two states: sign
 **The production identity provider remains unconfigured. This build stays at the authentication pages until a real provider is connected.** Form validation does not create a session. No mock sign-in or device-stored plaintext password is introduced. Any valid connected-provider session unlocks the same existing on-device journal; per-account storage separation is not implemented.
 
 The authentication gate supersedes earlier optional-login/guest instructions in this README. Tests use isolated provider fixtures to exercise login/logout and continue checking existing nutrition/migration behavior.
+
+
+### Version 0.8.3 — open Home before sign-in
+
+Launch shows the public Today welcome page and tabs without redirecting to Login. Login appears when opening a protected tab/Profile or choosing Sign in. Personal journal data and actions remain locked until a valid provider session exists. This supersedes the launch routing in 0.8.1–0.8.2; authentication is still unconfigured.

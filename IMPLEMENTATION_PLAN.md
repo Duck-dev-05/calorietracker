@@ -337,3 +337,10 @@ Verification: signed-out access denied at both navigation and store boundaries; 
 Signed-out application entry now opens Login directly, with registration and password-reset links. ProfileScreen independently renders LoginScreen unless the session is valid; profile data and personal-detail navigation are created only in the signed-in branch. The signed-in Account row opens Account & security, including Sign out. The existing app-wide login gate remains enabled; no guest bypass is added.
 
 Production identity authentication still requires a connected provider.
+
+
+## 13. Public launch, protected personal pages — version 0.8.3
+
+Supersedes the app-wide launch redirect: opening the application now shows a public Today welcome page and the main tab bar, not Login. Sign-in and registration are optional actions from that public page. Selecting Diary, Meals, Progress or You while signed out shows Login instead of personal content. Profile retains its own session guard. Actual journal reads/writes, backups and Health access remain denied without a valid session.
+
+After successful sign-in, show existing onboarding if incomplete, otherwise show personal pages. Signed-out onboarding cannot attempt to save a profile. No personal totals or fake records appear on the public home. Login still requires a real connected identity provider.

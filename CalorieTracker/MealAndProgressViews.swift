@@ -47,7 +47,7 @@ struct OnboardingView: View {
                         }
                         Section("Your data, your choice") {
                             Label("Your diary stays on this device", systemImage: "lock.shield")
-                            Label("No account needed", systemImage: "person.crop.circle.badge.checkmark")
+                            Label("Sign-in protects your personal journal", systemImage: "person.crop.circle.badge.checkmark")
                             Text("You can connect Apple Health from your profile whenever you're ready.")
                         }
                     }

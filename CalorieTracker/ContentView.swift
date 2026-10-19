@@ -14,22 +14,25 @@ struct ContentView: View {
     @AppStorage("healthEnabled") private var healthEnabled = false
     var body: some View {
         Group {
-            if !account.isAuthenticated {
-                AdaptiveNavigation { LoginScreen() }
-            } else if diary.storageBlocked {
+            if account.isAuthenticated && diary.storageBlocked {
                 AdaptiveNavigation { StorageRecoveryScreen() }
-            } else if onboarded {
+            } else if account.isAuthenticated && !onboarded {
+                OnboardingView()
+            } else {
                 TabView {
-                    AdaptiveNavigation { DashboardView() }.tabItem { Label("Today", systemImage: "house.fill") }
-                    AdaptiveNavigation { DiaryView() }.tabItem { Label("Diary", systemImage: "book.closed.fill") }
-                    AdaptiveNavigation { MealsView() }.tabItem { Label("Meals", systemImage: "fork.knife") }
-                    AdaptiveNavigation { ProgressScreen() }.tabItem { Label("Progress", systemImage: "chart.bar.fill") }
+                    AdaptiveNavigation {
+                        if account.isAuthenticated { DashboardView() }
+                        else { VisitorHomeScreen() }
+                    }.tabItem { Label("Today", systemImage: "house.fill") }
+                    AdaptiveNavigation { SignInRequired { DiaryView() } }.tabItem { Label("Diary", systemImage: "book.closed.fill") }
+                    AdaptiveNavigation { SignInRequired { MealsView() } }.tabItem { Label("Meals", systemImage: "fork.knife") }
+                    AdaptiveNavigation { SignInRequired { ProgressScreen() } }.tabItem { Label("Progress", systemImage: "chart.bar.fill") }
                     AdaptiveNavigation { ProfileScreen() }.tabItem { Label("You", systemImage: "person.crop.circle") }
                 }.modifier(AdaptiveTabs())
-            } else { OnboardingView() }
+            }
         }.tint(nourishGreen)
         .preferredColorScheme(appearance == "System" ? nil : (appearance == "Dark" ? .dark : .light))
-        .alert("Storage issue", isPresented: Binding(get: { diary.storageError != nil }, set: { if !$0 { diary.storageError = nil } })) {
+        .alert("Storage issue", isPresented: Binding(get: { account.isAuthenticated && diary.storageError != nil }, set: { if !$0 { diary.storageError = nil } })) {
             Button("OK") { diary.storageError = nil }
         } message: { Text(diary.storageError ?? "") }
         .onReceive(dayTimer) { _ in updateDay(refresh: false) }

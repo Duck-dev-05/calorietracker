@@ -79,20 +79,12 @@ struct PersonalDetailsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var age = ""
-    @State private var height = ""
-    @State private var weight = ""
     @State private var activity = "Not specified"
-    @State private var loggingWeight = false
-    @State private var weightBeforeLogging: Double?
-    @State private var weightAtLoad: Double?
-    @State private var heightAtLoad: Double?
-    @State private var heightTextAtLoad = ""
-    @State private var weightTextAtLoad = ""
     @State private var loaded = false
     @FocusState private var textFocused: Bool
     private let activities = ["Not specified", "Mostly seated", "Some daily movement", "Regular exercise", "Very active days"]
     private var ageValid: Bool { age.isEmpty || Int(age).map { (1...120).contains($0) } == true }
-    private var valid: Bool { name.count <= 200 && ageValid && (height.isEmpty || NumberDraftField.value(height, range: 80...250) != nil) && (weight.isEmpty || NumberDraftField.value(weight, range: 20...400) != nil) }
+    private var valid: Bool { name.count <= 200 && ageValid }
     var body: some View {
         Form {
             if let session = account.session, account.isAuthenticated {
@@ -127,15 +119,12 @@ struct PersonalDetailsScreen: View {
                 NavigationLink(destination: CombinedMeasurementsScreen()) {
                     Label("Add height & weight", systemImage: "ruler")
                 }
-                NumberDraftField(title: "Height (cm)", text: $height, range: 80...250, isOptional: true, placeholder: "Optional")
+                ValueRow(title: "Saved height", value: diary.profile.height.map { "\($0.formatted()) cm" } ?? "Not set")
                 healthReading(.height)
-                NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400, isOptional: true, placeholder: "Optional")
+                ValueRow(title: "Saved weight", value: diary.profile.weight.map { "\($0.formatted()) kg" } ?? "Not set")
                 healthReading(.weight)
-                Button {
-                    weightBeforeLogging = diary.profile.weight; loggingWeight = true
-                } label: { Label("Log a dated weight", systemImage: "plus.circle") }
             } header: { Text("Body measurements") } footer: {
-                Text("Editable values are your saved profile. Apple Health readings appear below each field; tap a reading to review and import it.")
+                Text("Use Add height & weight to edit measurements. Tap a Health reading to review and import it.")
             }
             Section {
                 Picker("Usual activity", selection: $activity) {
@@ -143,21 +132,8 @@ struct PersonalDetailsScreen: View {
                 }.pickerStyle(.menu)
             } header: { Text("Activity") } footer: { Text(activityDetail) }
             Section {
-                Button(healthEnabled ? "Review Health access" : "Connect Apple Health") {
-                    healthEnabled = true
-                    Task { await health.connect() }
-                }.disabled(health.busy)
-                Button("Refresh Health data") { Task { await health.refresh() } }.disabled(health.busy)
-                if health.busy { ProgressView("Reading Apple Health…") }
-                healthReading(.steps)
-                healthReading(.activeEnergy)
-                DisclosureGroup("All supported Health & Fitness data") {
-                    HealthCataloguePanel().padding(.vertical, 8)
-                }
-                NavigationLink("Health connection", destination: HealthScreen())
-            } header: { Text("Apple Health") } footer: {
-                Text("Only readable records are shown. Missing data can mean no records or restricted access. Age and journal name remain manual; usual activity is not inferred from workouts.")
-            }
+                NavigationLink("Browse Health & Fitness", destination: HealthScreen())
+            } footer: { Text("Manage Health access and browse all supported records in the Health tab.") }
             if let error = diary.storageError {
                 Section { Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.red) }
             }
@@ -169,12 +145,6 @@ struct PersonalDetailsScreen: View {
                 if textFocused { Spacer(); Button("Done") { textFocused = false } }
             }
         }
-        .sheet(isPresented: $loggingWeight, onDismiss: {
-            if diary.profile.weight != weightBeforeLogging {
-                weight = diary.profile.weight.map(NutritionDraft.text) ?? ""
-                weightAtLoad = diary.profile.weight; weightTextAtLoad = weight
-            }
-        }) { WeightLogScreen().adaptiveEntrySheet() }
         .onAppear(perform: load)
         .task {
             health.expireOldResults()
@@ -223,35 +193,15 @@ struct PersonalDetailsScreen: View {
         }
     }
     private func load() {
-        if loaded {
-            if height == heightTextAtLoad && diary.profile.height != heightAtLoad {
-                height = diary.profile.height.map(NutritionDraft.text) ?? ""
-                heightAtLoad = diary.profile.height; heightTextAtLoad = height
-            }
-            if weight == weightTextAtLoad && diary.profile.weight != weightAtLoad {
-                weight = diary.profile.weight.map(NutritionDraft.text) ?? ""; weightAtLoad = diary.profile.weight; weightTextAtLoad = weight
-            }
-            return
-        }
-        weightAtLoad = diary.profile.weight
-        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height.map(NutritionDraft.text) ?? ""; weight = p.weight.map(NutritionDraft.text) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; heightAtLoad = p.height; heightTextAtLoad = height; weightTextAtLoad = weight; loaded = true
+        guard !loaded else { return }
+        name = diary.profile.name ?? ""; age = diary.profile.age.map(String.init) ?? ""
+        activity = diary.profile.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"
+        loaded = true
     }
     private func save() {
         guard valid else { return }
-        let h = NumberDraftField.value(height, range: 80...250), w = NumberDraftField.value(weight, range: 20...400)
         if diary.transaction({ saved in
             saved.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); saved.profile.age = Int(age)
-            if height != heightTextAtLoad {
-                guard saved.profile.height == heightAtLoad else { throw DiaryFailure.invalid("Height changed while this page was open. Reopen Personal details before editing height.") }
-                saved.profile.height = h
-            }
-            if weight != weightTextAtLoad {
-                guard saved.profile.weight == weightAtLoad else { throw DiaryFailure.invalid("Weight changed while this page was open. Reopen Personal details before editing weight.") }
-                if saved.profile.weight != w {
-                    saved.profile.weight = w; saved.profile.weightMeasuredAt = w == nil ? nil : diary.now
-                    saved.profile.weightSource = w == nil ? nil : "Profile edit"; saved.profile.weightEntryID = nil
-                }
-            }
             saved.profile.activityLevel = activity == "Not specified" ? nil : activity
         }) { dismiss() }
     }

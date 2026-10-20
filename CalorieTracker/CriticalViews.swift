@@ -73,8 +73,8 @@ struct HealthMetricScreen: View {
                 }
             }
             if metric == .height || metric == .weight {
-                NavigationLink(destination: ShareMeasurementScreen(metric: metric)) {
-                    Surface { RouteRow(title: "Save \(metric.title.lowercased()) to Apple Health", subtitle: "Choose a measurement and review before sharing", icon: "square.and.arrow.up", color: .pink) }
+                NavigationLink(destination: CombinedMeasurementsScreen()) {
+                    Surface { RouteRow(title: "Add height & weight", subtitle: "Review measurements and optionally save to Apple Health", icon: "square.and.arrow.up", color: .pink) }
                 }.buttonStyle(.plain)
             }
             Surface {

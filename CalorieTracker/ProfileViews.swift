@@ -41,23 +41,15 @@ struct ProfileScreen: View {
                 NavigationLink(destination: CombinedMeasurementsScreen()) {
                     Label("Height & weight", systemImage: "ruler")
                 }
-                NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Name, measurements and activity", icon: "person.crop.circle", showsChevron: false) }
                 NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & calorie target", subtitle: diary.profile.goal.isEmpty ? "Set your daily target" : diary.profile.goal, icon: "target", showsChevron: false) }
                 NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Diet and ingredient preferences" : diary.profile.preferences, icon: "fork.knife", showsChevron: false) }
             }
-            Section("History & progress") {
-                NavigationLink(destination: TargetHistoryScreen()) { Label("Target history", systemImage: "calendar") }
-                NavigationLink(destination: DailyNutritionScreen()) { Label("Daily nutrition", systemImage: "chart.bar") }
-                NavigationLink(destination: ProgressScreen()) { Label("Weekly progress", systemImage: "chart.bar") }
-                NavigationLink(destination: WeightHistoryScreen()) { Label("Weight history", systemImage: "scalemass") }
-                NavigationLink(destination: WaterScreen()) { Label("Water history", systemImage: "drop") }
-                NavigationLink(destination: MealPlanScreen()) { Label("Meal planner", systemImage: "calendar") }
+            Section {
+                NavigationLink(destination: ProgressScreen()) { Label("Progress", systemImage: "chart.bar") }
             }
             Section("App & data") {
-                NavigationLink(destination: SettingsScreen()) { Label("Settings", systemImage: "gearshape") }
-                NavigationLink(destination: BackupScreen()) { Label("Backup & restore", systemImage: "externaldrive") }
-                NavigationLink(destination: HelpScreen()) { Label("Help", systemImage: "questionmark.circle") }
-                NavigationLink(destination: PrivacyScreen()) { Label("Privacy & storage", systemImage: "hand.raised") }
+                NavigationLink(destination: SettingsScreen()) { Label("Settings & help", systemImage: "gearshape") }
+                NavigationLink(destination: BackupScreen()) { Label("Backup & recovery", systemImage: "externaldrive") }
             }
             Section { Text("Signed-in accounts share this iPhone's local journal.").font(.caption).foregroundStyle(.secondary) }
         }.listStyle(.insetGrouped).navigationTitle("Profile").navigationBarTitleDisplayMode(.inline)
@@ -128,9 +120,7 @@ struct SettingsScreen: View {
                 Picker("Appearance", selection: $appearance) { ForEach(["System", "Light", "Dark"], id: \.self) { Text($0) } }
                 ValueRow(title: "Measurements", value: "cm · kg · mL")
             }
-            Section("Account") { NavigationLink("Login & registration", destination: AccountWelcomeScreen()); NavigationLink("Account & security", destination: AccountSecurityScreen()) }
             Section("Your information") {
-                NavigationLink(destination: BackupScreen()) { Label("Backup & restore", systemImage: "externaldrive") }
                 NavigationLink("Privacy & storage", destination: PrivacyScreen())
                 Button("Review welcome setup") { replay = true }
             }
@@ -138,7 +128,7 @@ struct SettingsScreen: View {
                 BrandLockup().padding(.vertical, 8)
                 ValueRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unavailable")
                 ValueRow(title: "Minimum iOS", value: "15.0")
-                NavigationLink("Help & about", destination: HelpScreen())
+                DisclosureGroup("Help & how to use Nourish") { HelpContent().padding(.vertical, 8) }
             }
         }.navigationTitle("Settings")
         .alert("Review setup again?", isPresented: $replay) {
@@ -159,16 +149,16 @@ struct PrivacyScreen: View {
         }.navigationTitle("Privacy & storage")
     }
 }
-struct HelpScreen: View {
+private struct HelpContent: View {
     var body: some View {
-        List {
-            Section("How do I start?") { Text("Set your target in Profile → Goals & calorie target. Add what you eat in Diary, including calories for your actual serving. Save your own meals in Meals for reuse.") }
-            Section("Does planning count as eating?") { Text("No. Add meals to your planner, then mark them as eaten to move them into the diary. Future meals cannot be marked as eaten.") }
-            Section("Where do calories come from?") { Text("Food diary calories are entered by you. Saved meals use the calories and ingredients you enter. No meals or measurements are preloaded. There is no barcode scanner, photo analysis or live nutrition database yet.") }
-            Section("Why is Health data unavailable?") { Text("Check that Apple Health contains records and Nourish has read permission. Open Health → Overview and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
-            Section("How is my target calculated?") { Text("Open Goals & calorie target to enter a manual target or review a maintenance estimate. Estimate inputs and method are shown before applying. Choosing a weight goal does not automatically add a deficit. Targets have effective dates; target history preserves prior records.") }
-            Section("How do I keep a backup?") { Text("Open Profile → Backup & restore. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }
-            Section("About Nourish") { Text("A personal food and activity journal for iPhone, with iOS 15 support and a TrollStore IPA build workflow.") }
-        }.navigationTitle("Help & about")
+        VStack(alignment: .leading, spacing: 14) {
+            Group { Text("How do I start?").font(.headline); Text("Set your target in Profile → Goals & calorie target. Add what you eat in Diary, including calories for your actual serving. Save your own meals in Meals for reuse.") }
+            Group { Text("Does planning count as eating?").font(.headline); Text("No. Add meals to your planner, then mark them as eaten to move them into the diary. Future meals cannot be marked as eaten.") }
+            Group { Text("Where do calories come from?").font(.headline); Text("Food diary calories are entered by you. Saved meals use the calories and ingredients you enter. No meals or measurements are preloaded. There is no barcode scanner, photo analysis or live nutrition database yet.") }
+            Group { Text("Why is Health data unavailable?").font(.headline); Text("Check that Apple Health contains records and Nourish has read permission. Open Health → Overview and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
+            Group { Text("How is my target calculated?").font(.headline); Text("Open Goals & calorie target to enter a manual target or review a maintenance estimate. Estimate inputs and method are shown before applying. Choosing a weight goal does not automatically add a deficit. Targets have effective dates; target history preserves prior records.") }
+            Group { Text("How do I keep a backup?").font(.headline); Text("Open Profile → Backup & recovery. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }
+            Group { Text("About Nourish").font(.headline); Text("A personal food and activity journal for iPhone, with iOS 15 support and a TrollStore IPA build workflow.") }
+        }.font(.subheadline).fixedSize(horizontal: false, vertical: true)
     }
 }

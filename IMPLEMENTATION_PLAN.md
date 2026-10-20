@@ -477,4 +477,13 @@ Implemented Height & weight from Profile and Personal Details. Select either/bot
 ### Data protection — 0.19.1 (36)
 
 Restore previews are tied to the journal revision: subsequent local edits require a fresh preview. Recovery reset/restore now compares the exact original file even after a corrupt-file load; unreadable originals cannot be replaced until safely reloaded. Export rejects stale in-memory data after external file changes. Backup & restore includes a nondestructive Recovery copies browser with per-file date/size, original-byte export and validated reviewed restore. Copies are not automatically deleted. Added regression tests for stale previews, changed corrupt files, stale exports, recovery retention/relaunch/access control and archive failure. Existing migration archives, schema-4 validation and publish-after-success atomic writes remain. Physical iPhone update/export/import verification remains pending; no user data was modified by this development work.
-\n\n### Release 0.20.0 (37)\n\nPhase 1 source/recipe/mapping and background bulk-storage work is implemented. Schema 5 preserves schema 1–4 and legacy decoding with exact pre-migration archives. Check CI for verification outcome; device acceptance remains open. Export an independent backup before installing updates; do not downgrade after schema-5 migration.\n
+
+
+### Release 0.20.0 (37)
+
+Phase 1 source/recipe/mapping and background bulk-storage work is implemented. Schema 5 preserves schema 1–4 and legacy decoding with exact pre-migration archives. Check CI for verification outcome; device acceptance remains open. Export an independent backup before installing updates; do not downgrade after schema-5 migration.
+
+
+### Simpler navigation — 0.20.1 (38)
+
+Kept five main tabs. Profile retains avatar → Personal Details, the explicit Account & security button, Height & weight, Goals, Food preferences, Progress, Settings & help, and Backup & recovery. Removed duplicated Profile links to individual histories, planner, privacy and personal details. Target history stays inside Goals; daily nutrition and water remain on Dashboard; weight history stays inside Progress; planner stays in Meals. Help is now inline in Settings, with redundant signed-in Login/Account/Backup routes removed from Settings. Removed the obsolete single-measurement sharing page in favor of combined Height & weight. Personal Details keeps read-only saved/Health measurements and the combined entry route, while Health browsing and connection controls live in the Health tab. No journal data, migration, recipe or recovery functionality was deleted.

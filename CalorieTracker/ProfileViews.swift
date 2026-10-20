@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProfileScreen: View {
+    @State private var showingAccountSecurity = false
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var account: AccountStore
     var body: some View {
@@ -12,16 +13,20 @@ struct ProfileScreen: View {
     private var signedInProfile: some View {
         List {
             Section {
-                NavigationLink(destination: AccountSecurityScreen()) {
-                    HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
                         AccountAvatar(size: 54)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(account.session?.displayName ?? "Your account").font(.headline).fixedSize(horizontal: false, vertical: true)
                             Text(account.session?.email ?? "").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                             Text(account.session?.providerName ?? "").font(.caption).foregroundStyle(NourishStyle.accent)
                         }
-                    }.padding(.vertical, 8)
-                }
+                }.padding(.vertical, 8)
+                Button {
+                    showingAccountSecurity = true
+                } label: {
+                    Label("Account & security", systemImage: "lock.shield")
+                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                }.buttonStyle(.bordered)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 95), alignment: .leading)], spacing: 14) {
                     measurement("Height", diary.profile.height.map { "\($0.formatted()) cm" } ?? "Not set")
                     measurement("Weight", diary.profile.weight.map { "\($0.formatted()) kg" } ?? "Not set")
@@ -49,6 +54,19 @@ struct ProfileScreen: View {
             }
             Section { Text("Signed-in accounts share this iPhone's local journal.").font(.caption).foregroundStyle(.secondary) }
         }.listStyle(.insetGrouped).navigationTitle("Profile").navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingAccountSecurity) {
+            NavigationView {
+                AccountSecurityScreen()
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { showingAccountSecurity = false }
+                        }
+                    }
+            }.navigationViewStyle(.stack)
+        }
+        .onChange(of: account.isAuthenticated) { authenticated in
+            if !authenticated { showingAccountSecurity = false }
+        }
     }
     private func measurement(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true) }

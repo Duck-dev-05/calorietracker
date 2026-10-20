@@ -69,19 +69,22 @@ struct DashboardView: View {
     @EnvironmentObject var health: HealthService
     @EnvironmentObject var account: AccountStore
     @State private var adding = false
-    private var water: Int { diary.water.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.milliliters } }
-    private var plans: [PlannedMeal] { diary.planned.filter { Calendar.current.isDateInToday($0.date) } }
+    private var todayFoods: [Food] { diary.foods.filter { Calendar.current.isDate($0.date, inSameDayAs: diary.now) }.sorted { $0.date > $1.date } }
+    private var water: Int { diary.water.filter { Calendar.current.isDate($0.date, inSameDayAs: diary.now) }.reduce(0) { $0 + $1.milliliters } }
+    private var plans: [PlannedMeal] { diary.planned.filter { Calendar.current.isDate($0.date, inSameDayAs: diary.now) }.sorted { $0.date < $1.date } }
     var body: some View {
         PageCanvas {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(diary.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())).font(.caption).foregroundStyle(.secondary)
-                    Text("Your daily overview").font(.title2.bold())
+                    Text(account.session.map { "Hello, \($0.displayName)" } ?? "Your dashboard").font(.title2.bold()).fixedSize(horizontal: false, vertical: true)
+                    Text("Your nutrition, movement and plans at a glance.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 NavigationLink(destination: ProfileScreen()) { BrandMark(size: 40) }.accessibilityLabel("Open profile")
             }
             Surface {
+                HStack { SectionHeading(title: "Calorie balance"); Spacer(); NavigationLink("Edit target", destination: GoalsScreen()).font(.caption) }
                 Text(diary.remaining.map { $0 < 0 ? "Above your target" : "Calories remaining" } ?? "Calories logged").font(.subheadline).foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline) {
                     Text(diary.remaining.map { abs($0).formatted() } ?? diary.consumed.formatted()).font(.system(.largeTitle, design: .rounded).weight(.bold))
@@ -89,21 +92,26 @@ struct DashboardView: View {
                 }
                 if let target = diary.profile.target {
                     ProgressView(value: min(Double(diary.consumed) / max(target, 1), 1)).tint(NourishStyle.accent)
-                    HStack { Text("Eaten: \(diary.consumed) kcal"); Spacer(); Text("Target: \(Int(target)) kcal") }.font(.caption).foregroundStyle(.secondary)
+                    HStack { Text("Logged: \(diary.consumed) kcal"); Spacer(); Text("Target: \(Int(target)) kcal") }.font(.caption).foregroundStyle(.secondary)
                 } else {
                     NavigationLink("Set a daily target", destination: GoalsScreen()).font(.subheadline.weight(.semibold))
                 }
                 Button { adding = true } label: { Label("Log food", systemImage: "plus") }.buttonStyle(PrimaryAction())
             }
+            SectionHeading(title: "Today's snapshot")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
-                NavigationLink(destination: WaterScreen()) { QuickActionTile(title: "\(water) mL", subtitle: "Water today · add water", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
-                NavigationLink(destination: ProgressScreen()) { QuickActionTile(title: "Progress", subtitle: "Review your week", icon: "chart.bar.fill") }.buttonStyle(.plain)
+                NavigationLink(destination: DiaryView()) { QuickActionTile(title: "\(todayFoods.count)", subtitle: "Food entries logged", icon: "book.closed") }.buttonStyle(.plain)
+                NavigationLink(destination: WaterScreen()) { QuickActionTile(title: "\(water) mL", subtitle: "Water logged · add water", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
+                NavigationLink(destination: HealthMetricScreen(metric: .steps)) { QuickActionTile(title: health.steps.map { Int($0).formatted() } ?? "—", subtitle: "Steps · Apple Health", icon: "figure.walk") }.buttonStyle(.plain)
+                NavigationLink(destination: HealthMetricScreen(metric: .activeEnergy)) { QuickActionTile(title: health.activeEnergy.map { "\(Int($0)) kcal" } ?? "—", subtitle: "Active energy · Apple Health", icon: "flame", color: NourishStyle.peach) }.buttonStyle(.plain)
             }
+            Text("— means no current readable Health value. Activity is separate from your food target.").font(.caption).foregroundStyle(.secondary)
             Surface {
-                HStack { SectionHeading(title: "Activity today"); Spacer(); NavigationLink("Health", destination: HealthScreen()).font(.subheadline) }
-                ValueRow(title: "Steps", value: health.steps.map { Int($0).formatted() } ?? "Not available")
-                ValueRow(title: "Active energy", value: health.activeEnergy.map { "\(Int($0)) kcal" } ?? "Not available")
-                Text("Activity does not change your food target.").font(.caption).foregroundStyle(.secondary)
+                HStack { SectionHeading(title: "Recent food"); Spacer(); NavigationLink("View diary", destination: DiaryView()).font(.subheadline) }
+                if todayFoods.isEmpty { Text("Nothing logged for this day. Use Log food above to start.").font(.subheadline).foregroundStyle(.secondary) }
+                ForEach(Array(todayFoods.prefix(3))) { food in
+                    NavigationLink(destination: FoodDetailScreen(food: food)) { RouteRow(title: food.name, subtitle: "\(food.category ?? "Snacks") · \(food.calories) kcal · \(food.date.formatted(date: .omitted, time: .shortened))", icon: "fork.knife") }.buttonStyle(.plain)
+                }
             }
             Surface {
                 HStack { SectionHeading(title: "Planned for today"); Spacer(); NavigationLink("Planner", destination: MealPlanScreen()).font(.subheadline) }
@@ -114,6 +122,12 @@ struct DashboardView: View {
                 ForEach(plans) { meal in
                     NavigationLink(destination: PlannedMealEditorScreen(existing: meal)) { RouteRow(title: meal.name, subtitle: "\(meal.category) · \(meal.calories) kcal", icon: "fork.knife") }.buttonStyle(.plain)
                 }
+            }
+            Surface {
+                SectionHeading(title: "Explore your data")
+                NavigationLink(destination: ProgressScreen()) { RouteRow(title: "Weekly progress", subtitle: "Review your food logging and weight history", icon: "chart.bar") }.buttonStyle(.plain)
+                Divider()
+                NavigationLink(destination: HealthScreen()) { RouteRow(title: "Health & Fitness", subtitle: "Measurements, workouts and connected records", icon: "heart", color: .pink) }.buttonStyle(.plain)
             }
         }.navigationTitle("Dashboard").navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $adding) { AddFoodView().adaptiveEntrySheet() }

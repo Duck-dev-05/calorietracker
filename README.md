@@ -190,3 +190,8 @@ Five native tabs now organize Today, Diary, Meals, Health and Profile. Weekly Pr
 CI verifies existing core/configuration behavior and iOS compilation. This is a structural UI revision, not evidence of measured usability improvement; phone validation for navigation, search/category selection, keyboard, large text, VoiceOver and light/dark layouts remains required.
 
 Navigation follow-up: iOS 26 tabs stay expanded while scrolling so destination names remain visible; the native glass presentation is retained.
+
+
+## Dashboard content — v0.17.1
+
+Dashboard now greets the signed-in user and groups a calorie balance/target action, a real-data snapshot (food entry count, logged water, readable steps/active energy), the latest three food entries, the day's planned meals and links to weekly progress and Health/Fitness. Entries open their actual detail/edit pages. Day grouping uses the diary clock consistently. No sample data, recommendations, inferred macro totals or automatic activity-budget changes are introduced; missing Health values are explained.

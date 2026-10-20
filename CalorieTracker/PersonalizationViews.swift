@@ -93,7 +93,6 @@ struct PersonalDetailsScreen: View {
     private var displayName: String { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your profile" : name }
     var body: some View {
         PersonalEditor(title: "Personal details", subtitle: "Edits apply only after a successful save.", actionTitle: "Save profile", valid: valid, action: save) {
-            profileBanner
             EditorHeading(number: "01", title: "The basics", detail: "A name for your journal. Age is optional.")
             Surface {
                 VStack(alignment: .leading, spacing: 8) {
@@ -126,20 +125,9 @@ struct PersonalDetailsScreen: View {
         .toolbar { ToolbarItemGroup(placement: .keyboard) { if textFocused { Spacer(); Button("Done") { textFocused = false } } } }
         .onAppear(perform: load)
     }
-    private var profileBanner: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top, spacing: 16) {
-                Text(String(displayName.prefix(1)).uppercased()).font(.system(.largeTitle, design: .rounded).weight(.medium)).frame(width: 64, height: 64).background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 22)).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 6) { Text("MAKE IT PERSONAL").font(.caption2.bold()).tracking(2).foregroundStyle(.white.opacity(0.65)); Text(displayName).font(.system(.title, design: .rounded).weight(.bold)).fixedSize(horizontal: false, vertical: true) }
-                Spacer(minLength: 0)
-            }
-            Label("Your starting point. Your own pace.", systemImage: "leaf").font(.subheadline).foregroundStyle(.white.opacity(0.8))
-        }.padding(24).frame(maxWidth: .infinity, alignment: .leading).foregroundStyle(.white)
-            .background(LinearGradient(colors: [Color(red: 0.18, green: 0.36, blue: 0.29), Color(red: 0.08, green: 0.22, blue: 0.18)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 28))
-    }
     private var healthPanel: some View {
         Surface {
-            HStack { IconTile(icon: "heart.fill", color: .pink); VStack(alignment: .leading, spacing: 4) { Text("Less typing. More you.").font(.headline); Text("Import from Apple Health").font(.caption).foregroundStyle(.secondary) } }
+            HStack { IconTile(icon: "heart.fill", color: .pink); VStack(alignment: .leading, spacing: 4) { Text("Apple Health").font(.headline); Text("Import from Apple Health").font(.caption).foregroundStyle(.secondary) } }
             NavigationLink(destination: HealthMetricScreen(metric: .height)) { Text("Review Health height & measurement date") }.font(.subheadline)
             NavigationLink(destination: HealthMetricScreen(metric: .weight)) { Text("Review Health weight & measurement date") }.font(.subheadline)
             NavigationLink(destination: HealthScreen()) { Label("Open Health connection", systemImage: "arrow.up.right").font(.subheadline.weight(.semibold)) }
@@ -199,7 +187,7 @@ struct GoalsScreen: View {
     private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 10), count: sizeCategory.isAccessibilityCategory ? 1 : 3) }
     var body: some View {
         PersonalEditor(title: "Goals & target", subtitle: "Apply this target to your daily balance.", actionTitle: "Save my plan", valid: valid, action: save) {
-            VStack(alignment: .leading, spacing: 8) { Text("A LITTLE DIRECTION").font(.caption.bold()).tracking(2).foregroundStyle(NourishStyle.accent); Text("Build your daily plan.").font(.system(.largeTitle, design: .rounded).weight(.bold)) }
+            Text("Choose a goal and enter your daily calorie target.").font(.subheadline).foregroundStyle(.secondary)
             LazyVGrid(columns: columns, spacing: 10) {
                 ChoiceTile(title: "Maintain", icon: "equal.circle", selected: goal == "Maintain") { goal = "Maintain" }
                 ChoiceTile(title: "Lose weight", icon: "arrow.down.right", selected: goal == "Lose weight") { goal = "Lose weight" }
@@ -278,8 +266,7 @@ struct PreferencesScreen: View {
     var body: some View {
         PersonalEditor(title: "Food preferences", subtitle: "Changes apply to meal ideas after you save.", actionTitle: "Save my preferences", valid: valid, action: save) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("A PLATE THAT FEELS LIKE YOU").font(.caption.bold()).tracking(1.5).foregroundStyle(NourishStyle.accent)
-                Text("Find your food style.").font(.system(.largeTitle, design: .rounded).weight(.bold))
+                                Text("Food preferences").font(.title2.bold())
                 Text("A few choices to make your next meal easier.").font(.subheadline).foregroundStyle(.secondary)
             }
             LazyVGrid(columns: columns, spacing: 12) {

@@ -36,27 +36,22 @@ struct SignInRequired<Content: View>: View {
 struct VisitorHomeScreen: View {
     var body: some View {
         PageCanvas {
-            BrandLockup().padding(.vertical, 8)
-            VStack(alignment: .leading, spacing: 22) {
-                HStack { Text("WELCOME TO NOURISH").font(.caption.weight(.semibold)).tracking(1.5); Spacer(); Image(systemName: "sun.max") }.foregroundStyle(NourishStyle.lime)
-                Text("Your day.\nA healthier rhythm.").font(.system(.largeTitle, design: .rounded).weight(.bold)).tracking(-0.8).fixedSize(horizontal: false, vertical: true)
-                Text("Make room for meals, movement and a healthier everyday.").font(.subheadline).lineSpacing(3).foregroundStyle(Color.white.opacity(0.8))
-                HStack(spacing: 12) { Image(systemName: "fork.knife"); Image(systemName: "drop.fill"); Image(systemName: "figure.walk"); Spacer(); BrandMark(size: 64) }.font(.title2).foregroundStyle(NourishStyle.lime).padding(.vertical, 12)
-                Label("A personal journal, made for you", systemImage: "lock.shield").font(.caption).foregroundStyle(Color.white.opacity(0.8))
-            }.padding(26).foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading).background(NourishStyle.forest, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
-            SectionHeading(title: "Meet your daily rhythm", subtitle: "Simple tools for the things that add up.")
+            BrandLockup()
             Surface {
-                RouteRow(title: "Food, thoughtfully logged", subtitle: "Keep meals, portions and nutrition in one place", icon: "fork.knife", showsChevron: false)
-                Divider()
-                RouteRow(title: "Progress, at your pace", subtitle: "Follow the measurements you choose to record", icon: "chart.line.uptrend.xyaxis", color: NourishStyle.peach, showsChevron: false)
-                Divider()
-                RouteRow(title: "Private by default", subtitle: "Your personal pages stay locked until you sign in", icon: "lock.shield", color: NourishStyle.blue, showsChevron: false)
-            }
-            VStack(spacing: 12) {
-                NavigationLink("Sign in to your journal", destination: LoginScreen()).buttonStyle(PrimaryAction())
+                Text("Food and activity,\nmade simple.").font(.system(.title, design: .default).weight(.bold)).fixedSize(horizontal: false, vertical: true)
+                Text("Keep a food diary, save meals and review your Apple Health data.").font(.subheadline).foregroundStyle(.secondary)
+                NavigationLink("Log in", destination: LoginScreen()).buttonStyle(PrimaryAction())
                 NavigationLink("Create an account", destination: RegisterScreen()).buttonStyle(SecondaryAction())
-                Text("Already have entries? They stay on this device.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
+            SectionHeading(title: "What you can do")
+            Surface {
+                RouteRow(title: "Log food", subtitle: "Start with a name and calories", icon: "plus", showsChevron: false)
+                Divider()
+                RouteRow(title: "Save meals", subtitle: "Reuse servings you eat regularly", icon: "fork.knife", showsChevron: false)
+                Divider()
+                RouteRow(title: "Review Health data", subtitle: "Choose what to connect and share", icon: "heart", showsChevron: false)
+            }
+            Text("Sign in when you're ready. Existing diary entries stay on this iPhone.").font(.caption).foregroundStyle(.secondary)
         }.navigationTitle("Nourish").navigationBarTitleDisplayMode(.inline)
     }
 }

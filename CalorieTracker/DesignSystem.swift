@@ -30,8 +30,8 @@ struct PageCanvas<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) { content }
-                .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 40)
+            VStack(alignment: .leading, spacing: 20) { content }
+                .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 24)
                 .frame(maxWidth: 760).frame(maxWidth: .infinity)
         }.background(NourishStyle.canvas.ignoresSafeArea()).modifier(AdaptiveScroll())
     }
@@ -40,10 +40,10 @@ struct Surface<Content: View>: View {
     private let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) { content }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 14) { content }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(NourishStyle.surface, in: RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: InterfaceGeneration.cardRadius, style: .continuous).stroke(NourishStyle.accent.opacity(0.12), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.035), radius: 18, x: 0, y: 6)
+
     }
 }
 struct PageIntro: View {
@@ -51,11 +51,11 @@ struct PageIntro: View {
     let title: String
     let detail: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) { Capsule().fill(NourishStyle.accent).frame(width: 20, height: 3); Text(eyebrow.uppercased()).font(.caption2.weight(.bold)).tracking(1.8).foregroundStyle(NourishStyle.accent) }
-            Text(title).font(.system(.largeTitle, design: .default).weight(.bold)).tracking(-1).fixedSize(horizontal: false, vertical: true)
-            Text(detail).font(.subheadline).foregroundStyle(.secondary).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
-        }.padding(.vertical, 8)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(eyebrow).font(.caption.weight(.medium)).foregroundStyle(NourishStyle.accent)
+            Text(title).font(.system(.title2, design: .default).weight(.bold)).fixedSize(horizontal: false, vertical: true)
+            if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+        }
     }
 }
 struct SectionHeading: View {
@@ -90,7 +90,7 @@ struct RouteRow: View {
                 Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)
-            if showsChevron { Image(systemName: "arrow.up.right").font(.caption.weight(.semibold)).foregroundStyle(color).frame(width: 28, height: 28).background(color.opacity(0.07), in: Circle()).accessibilityHidden(true) }
+            if showsChevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary).accessibilityHidden(true) }
         }.frame(minHeight: 58).contentShape(Rectangle())
     }
 }

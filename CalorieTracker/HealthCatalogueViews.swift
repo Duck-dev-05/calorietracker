@@ -5,6 +5,7 @@ struct HealthCataloguePanel: View {
     @State private var results: [HealthDataKind: HealthBrowseResult] = [:]
     @State private var loading = false
     @State private var search = ""
+    @State private var expanded: Set<String> = ["Activity & Fitness"]
     private var kinds: [HealthDataKind] { HealthDataKind.allCases.filter { search.isEmpty || ($0.title + " " + $0.group).localizedCaseInsensitiveContains(search) } }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -14,7 +15,7 @@ struct HealthCataloguePanel: View {
             ForEach(HealthDataKind.groups, id: \.self) { group in
                 if kinds.contains(where: { $0.group == group }) {
                     Surface {
-                        SectionHeading(title: group)
+                        DisclosureGroup(group, isExpanded: Binding(get: { !search.isEmpty || expanded.contains(group) }, set: { if $0 { expanded.insert(group) } else { expanded.remove(group) } })) {
                         ForEach(kinds.filter { $0.group == group }) { kind in
                             NavigationLink(destination: HealthRecordsScreen(kind: kind)) {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -28,6 +29,7 @@ struct HealthCataloguePanel: View {
                                 }.padding(.vertical, 8).contentShape(Rectangle())
                             }.buttonStyle(.plain)
                             if kind != kinds.filter({ $0.group == group }).last { Divider() }
+                        }
                         }
                     }
                 }

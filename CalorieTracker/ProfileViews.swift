@@ -10,94 +10,85 @@ struct ProfileScreen: View {
         }
     }
     private var signedInProfile: some View {
-        PageCanvas {
-            PageIntro(eyebrow: "Your space", title: "Your profile", detail: "Manage your details and daily goals.")
-            Surface {
-                HStack(spacing: 16) {
-                    Text(account.session?.initials ?? "").font(.system(.title2, design: .rounded).weight(.bold))
-                        .foregroundStyle(NourishStyle.accent).frame(width: 64, height: 64)
-                        .background(NourishStyle.accent.opacity(0.12), in: Circle()).accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(account.session?.displayName ?? "Your account").font(.system(.title2, design: .rounded).weight(.bold)).fixedSize(horizontal: false, vertical: true)
-                        if let session = account.session {
-                            Text(session.email).font(.subheadline).foregroundStyle(.secondary).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                            Label("Signed in with \(session.providerName)", systemImage: "checkmark.circle.fill").font(.caption.weight(.medium)).foregroundStyle(NourishStyle.accent)
-                        }
-                    }
-                }
-                if let name = diary.profile.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty, name != account.session?.displayName {
-                    ValueRow(title: "Journal name", value: name)
-                }
-                Pill(text: diary.profile.goal.isEmpty ? "Goal not set" : diary.profile.goal)
-                Divider()
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), alignment: .leading)], alignment: .leading, spacing: 18) {
-                    measurement("Height", diary.profile.height.map { String(format: "%.0f cm", $0) } ?? "Not set")
-                    measurement("Weight", diary.profile.weight.map { String(format: "%.1f kg", $0) } ?? "Not set")
-                    measurement("Target", diary.profile.target.map { "\(Int($0)) kcal" } ?? "Not set")
-                }
-            }
-            Surface {
+        List {
+            Section {
                 NavigationLink(destination: AccountSecurityScreen()) {
-                    RouteRow(title: "Account", subtitle: account.session?.email ?? "Sign in to unlock your journal", icon: "person.crop.circle.badge.checkmark")
-                }.buttonStyle(.plain)
+                    HStack(alignment: .top, spacing: 14) {
+                        Text(account.session?.initials ?? "").font(.title2.bold()).foregroundStyle(NourishStyle.accent).frame(width: 54, height: 54).background(NourishStyle.accent.opacity(0.12), in: Circle()).accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(account.session?.displayName ?? "Your account").font(.headline).fixedSize(horizontal: false, vertical: true)
+                            Text(account.session?.email ?? "").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            Text(account.session?.providerName ?? "").font(.caption).foregroundStyle(NourishStyle.accent)
+                        }
+                    }.padding(.vertical, 8)
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 95), alignment: .leading)], spacing: 14) {
+                    measurement("Height", diary.profile.height.map { "\($0.formatted()) cm" } ?? "Not set")
+                    measurement("Weight", diary.profile.weight.map { "\($0.formatted()) kg" } ?? "Not set")
+                    measurement("Daily target", diary.profile.target.map { "\(Int($0)) kcal" } ?? "Not set")
+                }.padding(.vertical, 6)
             }
-            SectionHeading(title: "Personal settings")
-            NavigationLink(destination: PersonalDetailsScreen()) {
-                Surface { RouteRow(title: "Personal details", subtitle: "Measurements, age and activity", icon: "person.crop.circle") }
-            }.buttonStyle(.plain)
-            NavigationLink(destination: GoalsScreen()) {
-                Surface { RouteRow(title: "Goals & daily target", subtitle: diary.profile.goal.isEmpty ? "Choose your direction" : diary.profile.goal, icon: "target", color: NourishStyle.peach) }
-            }.buttonStyle(.plain)
-            NavigationLink(destination: PreferencesScreen()) {
-                Surface { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Choose your food style" : diary.profile.preferences, icon: "fork.knife", color: NourishStyle.blue) }
-            }.buttonStyle(.plain)
-            SectionHeading(title: "App & connections")
-            Surface {
-                NavigationLink(destination: HealthScreen()) { RouteRow(title: "Apple Health", subtitle: "Activity, height and weight", icon: "heart.fill", color: .pink) }.buttonStyle(.plain)
-                Divider()
-                NavigationLink(destination: SettingsScreen()) { RouteRow(title: "Settings", subtitle: "Appearance and app preferences", icon: "slider.horizontal.3") }.buttonStyle(.plain)
-                Divider()
-                NavigationLink(destination: HelpScreen()) { RouteRow(title: "A little guidance", subtitle: "Help and about Nourish", icon: "questionmark.circle") }.buttonStyle(.plain)
+            Section("Personal settings") {
+                NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Name, measurements and activity", icon: "person.crop.circle", showsChevron: false) }
+                NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & calorie target", subtitle: diary.profile.goal.isEmpty ? "Set your daily target" : diary.profile.goal, icon: "target", showsChevron: false) }
+                NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Diet and ingredient preferences" : diary.profile.preferences, icon: "fork.knife", showsChevron: false) }
             }
-            Label("Your journal stays on your device", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-        }.navigationTitle("You").navigationBarTitleDisplayMode(.inline)
+            Section("History & progress") {
+                NavigationLink(destination: ProgressScreen()) { Label("Weekly progress", systemImage: "chart.bar") }
+                NavigationLink(destination: WeightHistoryScreen()) { Label("Weight history", systemImage: "scalemass") }
+                NavigationLink(destination: WaterScreen()) { Label("Water history", systemImage: "drop") }
+                NavigationLink(destination: MealPlanScreen()) { Label("Meal planner", systemImage: "calendar") }
+            }
+            Section("App & data") {
+                NavigationLink(destination: SettingsScreen()) { Label("Settings", systemImage: "gearshape") }
+                NavigationLink(destination: BackupScreen()) { Label("Backup & restore", systemImage: "externaldrive") }
+                NavigationLink(destination: HelpScreen()) { Label("Help", systemImage: "questionmark.circle") }
+                NavigationLink(destination: PrivacyScreen()) { Label("Privacy & storage", systemImage: "hand.raised") }
+            }
+            Section { Text("Signed-in accounts share this iPhone's local journal.").font(.caption).foregroundStyle(.secondary) }
+        }.listStyle(.insetGrouped).navigationTitle("Profile").navigationBarTitleDisplayMode(.inline)
     }
     private func measurement(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.system(.subheadline, design: .rounded).weight(.semibold)).fixedSize(horizontal: false, vertical: true) }
+        VStack(alignment: .leading, spacing: 4) { Text(title).font(.caption).foregroundStyle(.secondary); Text(value).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true) }
     }
 }
 struct HealthScreen: View {
     @EnvironmentObject var health: HealthService
     @AppStorage("healthEnabled") private var enabled = false
+    @State private var section = "Overview"
     var body: some View {
-        PageCanvas {
-            PageIntro(eyebrow: "Apple Health & Fitness", title: "Your health, in one place.", detail: "Connect, choose the data you allow, then browse your available records.")
-            Surface {
-                Text(health.status).font(.subheadline)
-                Button("Connect / manage Health access") { enabled = true; Task { await health.connect() } }.buttonStyle(PrimaryAction()).disabled(health.busy)
-                Button("Refresh available data") { Task { await health.refresh() } }.disabled(health.busy)
-                if health.busy { ProgressView("Refreshing metrics independently…") }
-                Toggle("Refresh when opening Nourish", isOn: $enabled)
-                Text("Turning this off stops automatic reads. Revoke access in Apple Health → your profile → Apps → Nourish.").font(.footnote).foregroundStyle(.secondary)
-            }
-            Surface {
-                SectionHeading(title: "Body measurements", subtitle: "Import from Health or review a measurement to share.")
-                NavigationLink(destination: HealthMetricScreen(metric: .height)) { RouteRow(title: "Height", subtitle: "Review Health value or share your measurement", icon: "ruler") }.buttonStyle(.plain)
-                Divider()
-                NavigationLink(destination: HealthMetricScreen(metric: .weight)) { RouteRow(title: "Weight", subtitle: "Review Health value or share your measurement", icon: "scalemass") }.buttonStyle(.plain)
-                Text("Fitness uses Apple's Health data. Nourish shares body measurements only; it does not change activity rings or goals.").font(.caption).foregroundStyle(.secondary)
-            }
-            ForEach(HealthMetric.allCases.filter { $0.isDaily }) { metric in
-                NavigationLink(destination: HealthMetricScreen(metric: metric)) {
+        VStack(spacing: 0) {
+            Picker("Health section", selection: $section) { Text("Overview").tag("Overview"); Text("Browse data").tag("Browse data") }.pickerStyle(.segmented).padding(.horizontal, 16).padding(.vertical, 12)
+            PageCanvas {
+                if section == "Overview" {
                     Surface {
-                        RouteRow(title: metric.title, subtitle: health.result(metric).status.rawValue, icon: metric.icon, color: metric.isDaily ? NourishStyle.accent : .pink)
-                        if let value = health.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.title2.bold()).foregroundStyle(.primary) }
+                        SectionHeading(title: "Apple Health connection", subtitle: "Choose what Nourish can read. Sharing measurements is always reviewed separately.")
+                        Button("Choose Health access") { enabled = true; Task { await health.connect() } }.buttonStyle(PrimaryAction()).disabled(health.busy)
+                        Button("Refresh available data") { Task { await health.refresh() } }.disabled(health.busy)
+                        if health.busy { ProgressView("Refreshing…") }
+                        DisclosureGroup("Connection details") { Text(health.status).font(.footnote).foregroundStyle(.secondary); Toggle("Refresh when opening Nourish", isOn: $enabled); Text("Turning refresh off does not revoke permissions. Manage those in Apple Health.").font(.caption).foregroundStyle(.secondary) }
                     }
-                }.buttonStyle(.plain)
+                    Surface {
+                        SectionHeading(title: "Body measurements")
+                        NavigationLink(destination: HealthMetricScreen(metric: .height)) { RouteRow(title: "Height", subtitle: health.height.map { "\($0.formatted()) cm · latest reading" } ?? "Review or share a measurement", icon: "ruler") }.buttonStyle(.plain)
+                        Divider()
+                        NavigationLink(destination: HealthMetricScreen(metric: .weight)) { RouteRow(title: "Weight", subtitle: health.weight.map { "\($0.formatted()) kg · latest reading" } ?? "Review or share a measurement", icon: "scalemass") }.buttonStyle(.plain)
+                    }
+                    Surface {
+                        SectionHeading(title: "Today's activity")
+                        NavigationLink(destination: HealthMetricScreen(metric: .steps)) { RouteRow(title: "Steps", subtitle: health.steps.map { Int($0).formatted() } ?? "No current value", icon: "figure.walk") }.buttonStyle(.plain)
+                        Divider()
+                        NavigationLink(destination: HealthMetricScreen(metric: .activeEnergy)) { RouteRow(title: "Active energy", subtitle: health.activeEnergy.map { "\(Int($0)) kcal" } ?? "No current value", icon: "flame", color: NourishStyle.peach) }.buttonStyle(.plain)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
+                        NavigationLink(destination: HealthRecordsScreen(kind: .workouts)) { QuickActionTile(title: "Workouts", subtitle: "Sessions and sources", icon: "figure.walk") }.buttonStyle(.plain)
+                        NavigationLink(destination: HealthRecordsScreen(kind: .rings)) { QuickActionTile(title: "Activity rings", subtitle: "Daily summaries", icon: "circle.dashed") }.buttonStyle(.plain)
+                    }
+                    Button("Browse all 26 supported types") { section = "Browse data" }.buttonStyle(SecondaryAction())
+                } else { HealthCataloguePanel() }
             }
-            HealthCataloguePanel()
-            Text("An empty result may mean no records or restricted read access. Height and weight are written only after you review sharing and allow the selected permission.").font(.footnote).foregroundStyle(.secondary)
-        }.navigationTitle("Apple Health").navigationBarTitleDisplayMode(.inline).onAppear { health.expireOldResults() }
+        }.background(NourishStyle.canvas.ignoresSafeArea()).navigationTitle("Health").navigationBarTitleDisplayMode(.inline)
+        .onAppear { health.expireOldResults() }
     }
 }
 struct SettingsScreen: View {

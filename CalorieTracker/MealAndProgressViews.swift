@@ -86,9 +86,7 @@ struct MealsView: View {
     }
     var body: some View {
         PageCanvas {
-            BrandLockup()
-            PageIntro(eyebrow: "Your meals", title: "Your saved meals", detail: "Create a meal once. Log it again whenever you eat it.")
-            Button { adding = true } label: { Label("Create a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
+            PageIntro(eyebrow: "Your collection", title: "Saved meals", detail: "Choose a meal to log it, or create your own.")
             if let createdMeal {
                 Surface {
                     Label("Meal saved", systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(NourishStyle.accent)
@@ -97,9 +95,9 @@ struct MealsView: View {
                     Button("Dismiss confirmation") { self.createdMeal = nil }.font(.caption)
                 }
             }
-            NavigationLink(destination: MealPlanScreen()) { Surface { RouteRow(title: "Your meal planner", subtitle: "Plan from your saved meals", icon: "calendar") } }.buttonStyle(.plain)
+            NavigationLink(destination: MealPlanScreen()) { Label("Open meal planner", systemImage: "calendar") }.font(.subheadline)
             if !diary.savedMeals.isEmpty {
-                Surface {
+                DisclosureGroup("Filter meals") {
                     Toggle("Fits my remaining calories", isOn: Binding(get: { onlyFits && diary.remaining != nil }, set: { onlyFits = $0 })).disabled(diary.remaining == nil)
                     Text(diary.remaining.map { "\(max(0, $0)) kcal remaining today" } ?? "Set a daily target to filter by remaining calories.").font(.caption).foregroundStyle(.secondary)
                 }
@@ -127,6 +125,7 @@ struct MealsView: View {
                 }
             }
         }.navigationTitle("Meals").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search your saved meals")
+        .safeAreaInset(edge: .bottom, spacing: 0) { EditorActionBar(title: "Create meal", enabled: true, hint: "") { adding = true } }
         .sheet(isPresented: $adding) { MealEditorScreen(onSave: { meal in search = ""; onlyFits = false; createdMeal = meal }).adaptiveEntrySheet() }
     }
 }

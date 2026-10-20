@@ -10,6 +10,16 @@ final class AccountTests: XCTestCase {
         XCTAssertEqual(session.providerName, "Local account")
         XCTAssertEqual(session.email, "user@example.test")
     }
+    func testGoogleAvatarUsesHTTPSAndLocalAccountsFallBackToInitials() {
+        var session = AccountSession(id: "google:test", email: "user@example.test", name: "Taylor Smith", expiresAt: .distantFuture, avatarURL: URL(string: "https://lh3.googleusercontent.com/test-photo"))
+        XCTAssertEqual(session.safeAvatarURL, session.avatarURL)
+        session.avatarURL = URL(string: "http://example.test/photo")
+        XCTAssertNil(session.safeAvatarURL)
+        session.avatarURL = URL(string: "https://user:password@example.test/photo")
+        XCTAssertNil(session.safeAvatarURL)
+        let local = AccountSession(id: "local:test", email: "user@example.test", name: "Taylor Smith", expiresAt: .distantFuture)
+        XCTAssertNil(local.safeAvatarURL); XCTAssertEqual(local.initials, "TS")
+    }
     func testEmailValidationDoesNotAcceptMalformedInput() {
         XCTAssertTrue(AccountValidation.email(" user@example.test "))
         XCTAssertTrue(AccountValidation.email("name+tag@example.test"))

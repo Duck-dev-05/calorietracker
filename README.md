@@ -200,3 +200,8 @@ Dashboard now greets the signed-in user and groups a calorie balance/target acti
 ## Compact Login — v0.17.2
 
 Login removes the welcome/brand header, repeated section/field headings, decorative OR divider, Google information card and New-to-Nourish sentence. Keeps the email/password form, password help, official Google button, registration link, actionable errors and a short shared-journal notice/privacy link. Google sharing details remain in Privacy and on other authentication pages. Google loading feedback now follows its own button operation rather than an unrelated email login. Authentication/storage behavior is unchanged.
+
+
+## Google profile avatar — v0.17.3
+
+Google sign-in, restoration and refresh now map the SDK profile photo URL into the current account session. Profile and Dashboard use a shared circular avatar with initials during loading, absent photos or download failure. Only HTTPS photo URLs from Google sessions are used; no password, photo URL or image is added to journal backups. Avatar view identity resets with account/URL changes and logout clears the session. Local accounts keep initials. Privacy text notes the Google photo download; no extra Google scope is requested. Source: https://developers.google.com/identity/sign-in/ios/people. Runtime photo loading/offline fallback and account switching require phone verification.

@@ -22,6 +22,11 @@ struct AccountSession {
     let email: String
     let name: String?
     var expiresAt: Date? = nil
+    var avatarURL: URL? = nil
+    var safeAvatarURL: URL? {
+        guard id.hasPrefix("google:"), let avatarURL, avatarURL.scheme?.lowercased() == "https", avatarURL.host != nil, avatarURL.user == nil, avatarURL.password == nil else { return nil }
+        return avatarURL
+    }
     var displayName: String {
         let value = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return value.isEmpty ? email : value

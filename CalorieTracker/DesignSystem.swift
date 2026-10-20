@@ -185,3 +185,24 @@ struct DiscardDraftButton: View {
             }
     }
 }
+
+/// Uses the authenticated Google profile photo; initials cover absent, loading or failed images.
+struct AccountAvatar: View {
+    @EnvironmentObject var account: AccountStore
+    var size: CGFloat = 48
+    private var fallback: some View {
+        ZStack {
+            Circle().fill(NourishStyle.accent.opacity(0.12))
+            Text(account.session?.initials ?? "").font(.system(size: size * 0.36, weight: .bold, design: .rounded)).foregroundStyle(NourishStyle.accent)
+        }
+    }
+    var body: some View {
+        AsyncImage(url: account.isAuthenticated ? account.session?.safeAvatarURL : nil) { phase in
+            if case .success(let image) = phase { image.resizable().scaledToFill() }
+            else { fallback }
+        }.frame(width: size, height: size).clipShape(Circle())
+            .overlay(Circle().stroke(NourishStyle.accent.opacity(0.15), lineWidth: 1))
+            .id((account.session?.id ?? "signed-out") + (account.session?.safeAvatarURL?.absoluteString ?? ""))
+            .accessibilityHidden(true)
+    }
+}

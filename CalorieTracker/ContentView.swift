@@ -81,7 +81,7 @@ struct DashboardView: View {
                     Text("Your nutrition, movement and plans at a glance.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                NavigationLink(destination: ProfileScreen()) { BrandMark(size: 40) }.accessibilityLabel("Open profile")
+                NavigationLink(destination: ProfileScreen()) { AccountAvatar(size: 40) }.accessibilityLabel("Open profile")
             }
             Surface {
                 HStack { SectionHeading(title: "Calorie balance"); Spacer(); NavigationLink("Edit target", destination: GoalsScreen()).font(.caption) }

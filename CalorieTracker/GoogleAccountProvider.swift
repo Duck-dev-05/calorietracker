@@ -46,7 +46,7 @@ import GoogleSignIn
               let expiry = user.accessToken.expirationDate else {
             throw DiaryFailure.invalid("Google did not return a complete account session. Please sign in again.")
         }
-        let result = AccountSession(id: "google:" + id, email: profile.email, name: profile.name, expiresAt: expiry)
+        let result = AccountSession(id: "google:" + id, email: profile.email, name: profile.name, expiresAt: expiry, avatarURL: profile.hasImage ? profile.imageURL(withDimension: 192) : nil)
         guard AccessPolicy.isAuthenticated(result) else { throw DiaryFailure.invalid("Google returned an invalid or expired session.") }
         return result
     }

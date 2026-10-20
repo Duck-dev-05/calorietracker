@@ -72,6 +72,8 @@ private struct ChoiceTile: View {
     }
 }
 struct PersonalDetailsScreen: View {
+    @EnvironmentObject var health: HealthService
+    @AppStorage("healthEnabled") private var healthEnabled = false
     @EnvironmentObject var diary: Diary
     @EnvironmentObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
@@ -123,12 +125,14 @@ struct PersonalDetailsScreen: View {
             }
             Section {
                 NumberDraftField(title: "Height (cm)", text: $height, range: 80...250, isOptional: true, placeholder: "Optional")
+                healthReading(.height)
                 NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400, isOptional: true, placeholder: "Optional")
+                healthReading(.weight)
                 Button {
                     weightBeforeLogging = diary.profile.weight; loggingWeight = true
                 } label: { Label("Log a dated weight", systemImage: "plus.circle") }
             } header: { Text("Body measurements") } footer: {
-                Text("These are your current measurements. Log a dated weight to track changes in Progress.")
+                Text("Editable values are your saved profile. Apple Health readings appear below each field; tap a reading to review and import it.")
             }
             Section {
                 Picker("Usual activity", selection: $activity) {
@@ -136,11 +140,20 @@ struct PersonalDetailsScreen: View {
                 }.pickerStyle(.menu)
             } header: { Text("Activity") } footer: { Text(activityDetail) }
             Section {
-                NavigationLink("Review height", destination: HealthMetricScreen(metric: .height))
-                NavigationLink("Review weight", destination: HealthMetricScreen(metric: .weight))
+                Button(healthEnabled ? "Review Health access" : "Connect Apple Health") {
+                    healthEnabled = true
+                    Task { await health.connect() }
+                }.disabled(health.busy)
+                Button("Refresh Health data") { Task { await health.refresh() } }.disabled(health.busy)
+                if health.busy { ProgressView("Reading Apple Health…") }
+                healthReading(.steps)
+                healthReading(.activeEnergy)
+                DisclosureGroup("All supported Health & Fitness data") {
+                    HealthCataloguePanel().padding(.vertical, 8)
+                }
                 NavigationLink("Health connection", destination: HealthScreen())
             } header: { Text("Apple Health") } footer: {
-                Text("Review measurements before importing or sharing them. Your calorie target is managed in Goals & target.")
+                Text("Only readable records are shown. Missing data can mean no records or restricted access. Age and journal name remain manual; usual activity is not inferred from workouts.")
             }
             if let error = diary.storageError {
                 Section { Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.red) }
@@ -160,6 +173,42 @@ struct PersonalDetailsScreen: View {
             }
         }) { WeightLogScreen().adaptiveEntrySheet() }
         .onAppear(perform: load)
+        .task {
+            health.expireOldResults()
+            if healthEnabled { await health.refresh() }
+        }
+    }
+    private func healthReading(_ metric: HealthMetric) -> some View {
+        let result = health.result(metric)
+        return NavigationLink(destination: HealthMetricScreen(metric: metric)) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Label("Health · \(metric.title)", systemImage: metric.icon)
+                        .font(.subheadline)
+                    Spacer()
+                    if let value = health.value(metric) {
+                        Text("\(value.formatted(.number.precision(.fractionLength(0...2)))) \(metric.unit)")
+                            .font(.subheadline.weight(.semibold))
+                    } else {
+                        Text(result.status.rawValue).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if health.value(metric) != nil {
+                    if let date = result.reading?.sampleDate {
+                        Text(date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                    } else if metric.isDaily {
+                        Text("Today").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let source = result.reading?.source {
+                        Text(source).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if !metric.isDaily {
+                        Text("Review to use in profile").font(.caption).foregroundStyle(NourishStyle.accent)
+                    }
+                }
+                if let error = result.error { Text(error).font(.caption).foregroundStyle(.red) }
+            }.padding(.vertical, 3)
+        }
     }
     private var activityDetail: String {
         switch activity {

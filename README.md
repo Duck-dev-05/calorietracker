@@ -217,3 +217,8 @@ Journal schema is now 4. Older records migrate with original-file archiving on f
 ### Personal details update — 0.18.1 (30)
 
 Replaced numbered cards and the large bottom save panel with a compact native form and navigation-bar Save. Shows the signed-in account name, email and Google avatar separately from the optional journal name. Measurement fields use clear unit labels; untouched measurements retain their exact stored values, and conflicting weight changes are rejected before saving. IPA compilation is checked in CI; on-device layout and Health import flows still require verification.
+
+
+### Personal details Health visibility — 0.18.4 (33)
+
+Personal Details now shows readable Health height and weight beside saved profile fields, with measurement dates, sources and review/import links. Includes today's steps and active energy, connection/refresh controls, and an expandable browser for all 26 supported Health types. Opening the page refreshes readings when Health refresh is enabled. Displaying readings does not overwrite profile drafts or automatically share measurements. Age and journal name remain manual; activity level is not inferred. On-device permissions, readability and layout need verification.

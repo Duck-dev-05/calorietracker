@@ -39,3 +39,17 @@ struct HealthBrowseResult {
     var records: [HealthDataRecord] = []
     var error: String?
 }
+
+/// Local calendar days can be shorter or longer than 24 hours. Never query beyond now.
+struct HealthBrowseWindow {
+    let start: Date?
+    let end: Date
+    init(day: Date?, now: Date = Date(), calendar: Calendar = .current) throws {
+        guard now.timeIntervalSinceReferenceDate.isFinite else { throw DiaryFailure.invalid("Invalid query date.") }
+        guard let day else { start = nil; end = now; return }
+        guard day.timeIntervalSinceReferenceDate.isFinite else { throw DiaryFailure.invalid("Invalid selected day.") }
+        let beginning = calendar.startOfDay(for: day)
+        guard beginning <= now, let following = calendar.date(byAdding: .day, value: 1, to: beginning) else { throw DiaryFailure.invalid("Choose today or an earlier day.") }
+        start = beginning; end = min(following, now)
+    }
+}

@@ -78,9 +78,10 @@ import HealthKit
     private let authorized: () -> Bool
     init(authorized: @escaping () -> Bool) {
         self.authorized = authorized
-        provider = HealthKitProvider(authorized: authorized)
-        monitor = HealthMonitor(provider: provider)
-        sharing = HealthSharingController(provider: provider, authorized: authorized)
+        let healthProvider = HealthKitProvider(authorized: authorized)
+        provider = healthProvider
+        monitor = HealthMonitor(provider: healthProvider)
+        sharing = HealthSharingController(provider: healthProvider, authorized: authorized)
         subscription = Publishers.Merge(monitor.objectWillChange, sharing.objectWillChange).sink { [weak self] _ in self?.objectWillChange.send() }
     }
     var sharingBusy: Bool { sharing.busy }

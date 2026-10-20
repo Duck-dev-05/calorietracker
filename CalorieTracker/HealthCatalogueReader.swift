@@ -45,10 +45,8 @@ import HealthKit
         guard let objectType = type(kind) else { throw DiaryFailure.invalid("This data type is unavailable on this iOS version.") }
         if kind == .rings { return try await rings(day ?? Date(), store: store) }
         guard let sampleType = objectType as? HKSampleType else { return [] }
-        let calendar = Calendar.current
-        let start = day.map { calendar.startOfDay(for: $0) }
-        let end = start.flatMap { calendar.date(byAdding: .day, value: 1, to: $0) }.map { min($0, Date()) } ?? Date()
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let window = try HealthBrowseWindow(day: day)
+        let predicate = HKQuery.predicateForSamples(withStart: window.start, end: window.end, options: [])
         let samples: [HKSample] = try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: limit,
                 sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]) { _, samples, error in

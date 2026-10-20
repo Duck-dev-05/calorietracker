@@ -318,8 +318,8 @@ struct MealEditorScreen: View {
                 }
                 Section("2 · Ingredients & serving") {
                     ZStack(alignment: .topLeading) {
-                        if ingredients.isEmpty { Text("Describe the ingredients, amounts and what one serving contains.").foregroundStyle(.secondary).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false) }
                         TextEditor(text: $ingredients).frame(minHeight: 130).focused($focused).accessibilityLabel("Ingredients and serving description")
+                        if ingredients.isEmpty { Text("Describe the ingredients, amounts and what one serving contains.").foregroundStyle(.secondary).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true) }
                     }
                     if ingredients.count > 2000 { Text("Keep ingredients and serving details under 2,000 characters.").font(.caption).foregroundStyle(.red) }
                     Toggle("This meal is vegetarian", isOn: $vegetarian)

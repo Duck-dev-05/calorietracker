@@ -83,7 +83,7 @@ final class NutritionEditingTests: XCTestCase {
         XCTAssertEqual(restored.planned?.first?.nutrition, portion)
     }
     func testAllSupportedLegacySchemasPreserveIDsDatesUnknownsAndOwner() throws {
-        let versions: [Int?] = [nil, 1, 2, 3]
+        let versions: [Int?] = [nil, 1, 2, 3, 4]
         for version in versions {
             var snapshot = DiarySnapshot.empty; snapshot.schemaVersion = version
             snapshot.ownerAccountID = "legacy-owner"
@@ -97,7 +97,7 @@ final class NutritionEditingTests: XCTestCase {
             XCTAssertNil(restored.foods[0].nutrition)
             XCTAssertNil(restored.profile.target)
             XCTAssertEqual(restored.ownerAccountID, "legacy-owner")
-            XCTAssertEqual(restored.schemaVersion, 3)
+            XCTAssertEqual(restored.schemaVersion, 4)
             XCTAssertEqual(try DiarySnapshot.decode(restored.encoded()).foods[0].id, snapshot.foods[0].id)
         }
     }

@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 struct DiarySnapshot: Codable {
-    var schemaVersion: Int? = 3
+    var schemaVersion: Int? = 4
     var ownerAccountID: String? = nil
     var profile: Profile
     var foods: [Food]
@@ -10,14 +10,15 @@ struct DiarySnapshot: Codable {
     var weights: [WeightEntry]? = []
     var planned: [PlannedMeal]? = []
     var savedMeals: [Meal]? = []
+    var targets: [NutritionTarget]? = nil
     static var empty: DiarySnapshot { DiarySnapshot(profile: Profile(), foods: []) }
     static let maxFileSize = 10 * 1024 * 1024
     var entryCount: Int {
-        let counts: [Int] = [foods.count, water?.count ?? 0, weights?.count ?? 0, planned?.count ?? 0, savedMeals?.count ?? 0]
+        let counts: [Int] = [foods.count, water?.count ?? 0, weights?.count ?? 0, planned?.count ?? 0, savedMeals?.count ?? 0, targets?.count ?? 0]
         return counts.reduce(0, +)
     }
     func validated() throws -> DiarySnapshot {
-        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 || schemaVersion == 3 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
+        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 || schemaVersion == 3 || schemaVersion == 4 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
         if let ownerAccountID, ownerAccountID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || ownerAccountID.count > 300 { throw DiaryFailure.invalid("Invalid journal owner identifier.") }
         for (value, range) in [(profile.height, 80.0...250.0), (profile.weight, 20.0...400.0), (profile.target, 500.0...10000.0)] {
             if let value, !value.isFinite || !range.contains(value) { throw DiaryFailure.invalid("A measurement or calorie target is outside the supported input range.") }
@@ -45,8 +46,10 @@ struct DiarySnapshot: Codable {
         for food in foods { try food.nutrition?.validate(calories: food.calories) }
         for meal in savedMeals ?? [] { try meal.nutrition?.validate(calories: meal.calories) }
         for plan in planned ?? [] { try plan.nutrition?.validate(calories: plan.calories) }
+        for target in targets ?? [] { try target.validate() }
+        guard Set((targets ?? []).map(\.id)).count == (targets ?? []).count else { throw DiaryFailure.invalid("Duplicate target identifiers.") }
         var result = self
-        result.schemaVersion = 3; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
+        result.schemaVersion = 4; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
         return result
     }
     static func decode(_ data: Data) throws -> DiarySnapshot {
@@ -126,7 +129,7 @@ enum DiaryFailure: LocalizedError {
                 }
                 let loaded = try DiarySnapshot.decode(data)
                 let version = try JSONDecoder().decode(DiarySnapshot.self, from: data).schemaVersion
-                storedSnapshot = loaded; diskBaseline = data; migrationPending = version != 3
+                storedSnapshot = loaded; diskBaseline = data; migrationPending = version != 4
             } else { storedSnapshot = .empty; diskBaseline = nil; migrationPending = false }
             storageBlocked = false; externalConflict = false; storageError = nil
         } catch { storageBlocked = true; storageError = "Your diary could not be opened. The original file is preserved. \(error.localizedDescription)" }
@@ -290,5 +293,27 @@ enum DiaryFailure: LocalizedError {
     }
     var today: [Food] { foods.filter { Calendar.current.isDate($0.date, inSameDayAs: now) } }
     var consumed: Int { today.reduce(0) { $0 + $1.calories } }
-    var remaining: Int? { profile.target.map { Int($0) - consumed } }
+    var targetRecords: [NutritionTarget] { snapshot.targets ?? [] }
+    func target(on date: Date) -> NutritionTarget? { NutritionTarget.effective(in: targetRecords, day: NutritionTarget.dayKey(date)) }
+    func targetCalories(on date: Date) -> Double? {
+        if !targetRecords.isEmpty { return target(on: date)?.calories }
+        return Calendar.current.isDate(date, inSameDayAs: now) ? profile.target : nil
+    }
+    var currentTargetCalories: Double? { targetCalories(on: now) }
+    var remaining: Int? { currentTargetCalories.map { Int($0) - consumed } }
+    @discardableResult func saveTarget(_ target: NutritionTarget, expectedRecords: [NutritionTarget]? = nil, updateProfile: (inout Profile) -> Void = { _ in }) -> Bool {
+        transaction { saved in
+            try target.validate()
+            let today = NutritionTarget.dayKey(now)
+            guard target.effectiveDay >= today else { throw DiaryFailure.invalid("New targets must start today or later. Past targets are preserved.") }
+            if let expectedRecords, expectedRecords != (saved.targets ?? []) { throw DiaryFailure.invalid("Targets changed while this editor was open. Reopen Goals before saving.") }
+            var records = saved.targets ?? []
+            if records.isEmpty, target.effectiveDay > today, let legacy = saved.profile.target {
+                records.append(NutritionTarget(effectiveDay: today, calories: legacy, allocation: nil, method: "legacy-manual-v1"))
+            }
+            records.append(target); saved.targets = records
+            updateProfile(&saved.profile)
+            saved.profile.target = NutritionTarget.effective(in: records, day: today)?.calories
+        }
+    }
 }

@@ -181,12 +181,27 @@ struct GoalsScreen: View {
     @State private var goalWeight = ""
     @State private var note = ""
     @State private var loaded = false
+    @State private var effectiveDate = Calendar.current.startOfDay(for: Date())
+    @State private var macrosEnabled = false
+    @State private var proteinPercent = ""
+    @State private var carbsPercent = ""
+    @State private var fatPercent = ""
+    @State private var estimating = false
+    @State private var estimate: EnergyEstimate?
+    @State private var recordsAtLoad: [NutritionTarget] = []
+    @State private var targetTextAtLoad = ""
+    @State private var targetValueAtLoad: Double?
     @FocusState private var targetFocused: Bool
-    private var calories: Double? { NumberDraftField.value(target, range: 500...10000) }
-    private var valid: Bool { (target.isEmpty || calories != nil) && (!hasGoalWeight || NumberDraftField.value(goalWeight, range: 20...400) != nil) && note.count <= 500 }
+    private var calories: Double? { target == targetTextAtLoad ? targetValueAtLoad : NumberDraftField.value(target, range: 500...10000) }
+    private var allocation: MacroAllocation? {
+        guard macrosEnabled, let protein = Int(proteinPercent), let carbs = Int(carbsPercent), let fat = Int(fatPercent) else { return nil }
+        let value = MacroAllocation(protein: protein, carbohydrate: carbs, fat: fat)
+        return (try? value.validate()) != nil ? value : nil
+    }
+    private var valid: Bool { (target.isEmpty || calories != nil) && (!hasGoalWeight || NumberDraftField.value(goalWeight, range: 20...400) != nil) && note.count <= 500 && (!macrosEnabled || (calories != nil && allocation != nil)) }
     private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 10), count: sizeCategory.isAccessibilityCategory ? 1 : 3) }
     var body: some View {
-        PersonalEditor(title: "Goals & target", subtitle: "Apply this target to your daily balance.", actionTitle: "Save my plan", valid: valid, action: save) {
+        PersonalEditor(title: "Goals & target", subtitle: "Save a target effective from your chosen date.", actionTitle: "Save my plan", valid: valid, action: save) {
             Text("Choose a goal and enter your daily calorie target.").font(.subheadline).foregroundStyle(.secondary)
             LazyVGrid(columns: columns, spacing: 10) {
                 ChoiceTile(title: "Maintain", icon: "equal.circle", selected: goal == "Maintain") { goal = "Maintain" }
@@ -196,6 +211,26 @@ struct GoalsScreen: View {
             Button("Clear goal selection") { goal = "" }.font(.caption).disabled(goal.isEmpty)
             Text(goalDescription).font(.subheadline).foregroundStyle(.secondary)
             targetPanel
+            Surface {
+                DatePicker("Applies from", selection: $effectiveDate, in: Calendar.current.startOfDay(for: diary.now)..., displayedComponents: .date)
+                Text("New targets start on this date. Earlier days keep their recorded targets.").font(.caption).foregroundStyle(.secondary)
+                NavigationLink("View target history", destination: TargetHistoryScreen())
+                Button("Estimate maintenance calories") { estimating = true }
+            }
+            Surface {
+                Toggle("Set macro targets", isOn: $macrosEnabled)
+                if macrosEnabled {
+                    TextField("Protein %", text: $proteinPercent).keyboardType(.numberPad)
+                    TextField("Carbohydrate %", text: $carbsPercent).keyboardType(.numberPad)
+                    TextField("Fat %", text: $fatPercent).keyboardType(.numberPad)
+                    Text("Choose your allocation. Percentages must total 100%. Grams use 4 kcal/g for protein and carbs, and 9 kcal/g for fat. No allocation is preselected.").font(.caption).foregroundStyle(.secondary)
+                    if let allocation, let calories, let grams = try? allocation.grams(calories: calories) {
+                        ValueRow(title: "Protein", value: "\(grams.protein!.formatted()) g/day")
+                        ValueRow(title: "Carbs", value: "\(grams.carbohydrate!.formatted()) g/day")
+                        ValueRow(title: "Fat", value: "\(grams.fat!.formatted()) g/day")
+                    } else { Text("Enter valid whole percentages and calories to preview macro targets.").font(.caption).foregroundStyle(.red) }
+                }
+            }
             EditorHeading(number: "01", title: "A milestone, if you want one", detail: "Set a weight to work toward, without a deadline.")
             Surface {
                 Toggle("Add a goal weight", isOn: $hasGoalWeight)
@@ -214,17 +249,18 @@ struct GoalsScreen: View {
             DisclosureGroup {
                 VStack(alignment: .leading, spacing: 12) {
                     EditorNote(text: "This is a manual target. Choosing a goal doesn't calculate calories, a deficit or a completion date.")
-                    EditorNote(text: "Apple Health activity stays separate. Changing your target updates comparisons; historical targets are not tracked yet.")
+                    EditorNote(text: "Apple Health activity stays separate. Dated targets preserve past comparisons. An undated legacy target is not copied into unknown past days.")
                     EditorNote(text: "Goal weight is a saved milestone. The input limits are validation limits, not recommendations.")
                 }.padding(.top, 12)
             } label: { Label("How this plan works", systemImage: "info.circle").font(.subheadline.weight(.semibold)) }
             EditorError()
         }.toolbar { ToolbarItemGroup(placement: .keyboard) { if targetFocused { Spacer(); Button("Done") { targetFocused = false } } } }
         .onAppear(perform: load)
+        .sheet(isPresented: $estimating) { EstimateReviewScreen(profile: diary.profile) { result in estimate = result; target = String(Int(result.maintenance.rounded())) }.adaptiveEntrySheet() }
     }
     private var targetPanel: some View {
         Surface {
-            HStack { Label("DAILY ENERGY", systemImage: "flame").font(.caption.bold()); Spacer(); Pill(text: "MANUAL") }
+            HStack { Label("DAILY ENERGY", systemImage: "flame").font(.caption.bold()); Spacer(); Pill(text: estimate != nil && estimate?.maintenance.rounded() == calories ? "ESTIMATE" : "MANUAL") }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 TextField("Not set", text: $target).keyboardType(.decimalPad).focused($targetFocused).font(.system(.largeTitle, design: .rounded).weight(.bold)).accessibilityLabel("Daily calorie target")
                 Text("kcal / day").font(.subheadline).foregroundStyle(.secondary)
@@ -234,6 +270,7 @@ struct GoalsScreen: View {
                 Button { adjust(-50) } label: { Label("50", systemImage: "minus").frame(maxWidth: .infinity).padding(.vertical, 5) }.buttonStyle(.bordered).accessibilityLabel("Decrease target by 50 kilocalories")
                 Button { adjust(50) } label: { Label("50", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 5) }.buttonStyle(.bordered).accessibilityLabel("Increase target by 50 kilocalories")
             }.disabled(calories == nil)
+            Button("Turn off calorie target") { target = ""; macrosEnabled = false; estimate = nil }.font(.caption)
             Divider()
             HStack(alignment: .top) { MiniStat(label: "Eaten today", value: "\(diary.consumed) kcal"); MiniStat(label: "Draft remaining", value: calories.map { "\(max(0, Int($0) - diary.consumed)) kcal" } ?? "—") }
             if let calories, Int(calories) < diary.consumed { Text("\(diary.consumed - Int(calories)) kcal above this draft target today.").font(.caption).foregroundStyle(.secondary) }
@@ -244,11 +281,22 @@ struct GoalsScreen: View {
     }
     private func adjust(_ delta: Double) { guard let calories else { return }; target = min(10000, max(500, calories + delta)).formatted(.number.grouping(.never)) }
     private func load() {
-        guard !loaded else { return }; let p = diary.profile; goal = p.goal; target = p.target?.formatted(.number.grouping(.never)) ?? ""; hasGoalWeight = p.goalWeight != nil; goalWeight = (p.goalWeight ?? p.weight)?.formatted(.number.grouping(.never)) ?? ""; note = p.goalNote ?? ""; loaded = true
+        guard !loaded else { return }; let p = diary.profile; goal = p.goal; target = diary.currentTargetCalories.map(NutritionDraft.text) ?? ""; hasGoalWeight = p.goalWeight != nil; goalWeight = (p.goalWeight ?? p.weight)?.formatted(.number.grouping(.never)) ?? ""; note = p.goalNote ?? ""; recordsAtLoad = diary.targetRecords; targetTextAtLoad = target; targetValueAtLoad = diary.currentTargetCalories
+        effectiveDate = Calendar.current.startOfDay(for: diary.now)
+        if let current = diary.target(on: diary.now) {
+            estimate = current.estimate
+            if let allocation = current.allocation { macrosEnabled = true; proteinPercent = String(allocation.protein); carbsPercent = String(allocation.carbohydrate); fatPercent = String(allocation.fat) }
+        }
+        loaded = true
     }
     private func save() {
         guard valid else { return }
-        if diary.transaction({ $0.profile.goal = goal; $0.profile.target = calories; $0.profile.goalWeight = hasGoalWeight ? NumberDraftField.value(goalWeight, range: 20...400) : nil; $0.profile.goalNote = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note.trimmingCharacters(in: .whitespacesAndNewlines) }) { dismiss() }
+        let acceptedEstimate = estimate.flatMap { $0.maintenance.rounded() == calories ? $0 : nil }
+        let record = NutritionTarget(effectiveDay: NutritionTarget.dayKey(effectiveDate), calories: calories, allocation: allocation, method: acceptedEstimate == nil ? "manual-v1" : "mifflin-st-jeor-v1", estimate: acceptedEstimate)
+        if diary.saveTarget(record, expectedRecords: recordsAtLoad, updateProfile: { profile in
+            profile.goal = goal; profile.goalWeight = hasGoalWeight ? NumberDraftField.value(goalWeight, range: 20...400) : nil
+            profile.goalNote = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note.trimmingCharacters(in: .whitespacesAndNewlines)
+        }) { dismiss() }
     }
 }
 struct PreferencesScreen: View {

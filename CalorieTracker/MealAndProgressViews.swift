@@ -58,7 +58,10 @@ struct OnboardingView: View {
                         if step == 2 {
                             guard validSetup else { return }; let h = NumberDraftField.value(height, range: 80...250), w = NumberDraftField.value(weight, range: 20...400), t = NumberDraftField.value(target, range: 500...10000)
                             draft.height = h; draft.weight = w; draft.target = t
-                            if diary.transaction({ $0.profile = draft }) { complete = true }
+                            if diary.transaction({ saved in
+                                let previous = diary.currentTargetCalories; saved.profile = draft
+                                if t != previous { var records = saved.targets ?? []; records.append(NutritionTarget(effectiveDay: NutritionTarget.dayKey(diary.now), calories: t, allocation: t == nil ? nil : diary.target(on: diary.now)?.allocation, method: "manual-v1")); saved.targets = records }
+                            }) { complete = true }
                         } else { step += 1 }
                     }.buttonStyle(PrimaryAction()).disabled(step > 0 && !validSetup)
                 }.padding()
@@ -66,7 +69,7 @@ struct OnboardingView: View {
             }.background(NourishStyle.canvas.ignoresSafeArea()).navigationTitle(step == 0 ? "Nourish" : "Your setup").navigationBarTitleDisplayMode(.inline)
             .toolbar { if step == 0 { Button("Set up later") { complete = true } } }
         }.onAppear {
-            if !loaded { draft = diary.profile; height = draft.height?.formatted(.number.grouping(.never)) ?? ""; weight = draft.weight?.formatted(.number.grouping(.never)) ?? ""; target = draft.target?.formatted(.number.grouping(.never)) ?? ""; loaded = true }
+            if !loaded { draft = diary.profile; height = draft.height?.formatted(.number.grouping(.never)) ?? ""; weight = draft.weight?.formatted(.number.grouping(.never)) ?? ""; target = diary.currentTargetCalories.map(NutritionDraft.text) ?? ""; loaded = true }
         }
     }
 }
@@ -251,11 +254,11 @@ struct ProgressScreen: View {
                             Spacer()
                             Text(total(date) > 0 ? "\(total(date)) kcal" : "No entries").font(.subheadline).foregroundStyle(.secondary)
                         }
-                        if let target = diary.profile.target { ProgressView(value: min(Double(total(date)) / max(1, target), 1)).tint(nourishGreen) }
+                        if let target = diary.targetCalories(on: date) { ProgressView(value: min(Double(total(date)) / max(1, target), 1)).tint(nourishGreen) }
                     }.padding(.vertical, 6)
                     if date != days.last { Divider() }
                 }
-                Text("Bars use your current manual target. An empty day means no entries, not zero food eaten.").font(.caption).foregroundStyle(.secondary)
+                Text("Bars use the target recorded for that day. Undated historical targets are unknown. An empty day means no entries, not zero food eaten.").font(.caption).foregroundStyle(.secondary)
             }
             SectionHeading(title: "Beyond the numbers")
             NavigationLink(destination: WeightHistoryScreen()) {

@@ -24,7 +24,7 @@ struct BackupScreen: View {
         PageCanvas {
             PageIntro(eyebrow: "Your information", title: "Keep a copy. Keep control.", detail: "Back up your journal to Files, or restore a previous copy.")
             Surface {
-                SectionHeading(title: "Export your journal", subtitle: "Profile, foods, saved meals, water, weights and plans")
+                SectionHeading(title: "Export your journal", subtitle: "Profile, targets, foods, saved meals, water, weights and plans")
                 ValueRow(title: "Entries on this device", value: "\(diary.snapshot.entryCount)")
                 Button { exportCurrent() } label: { Label("Save a backup to Files", systemImage: "square.and.arrow.up") }.buttonStyle(PrimaryAction()).disabled(diary.storageBlocked || !diary.can(.exportJournal))
                 Text("Your backup contains personal information and is not encrypted by Nourish. Choose a storage location you trust. App appearance and Health permissions are not included.").font(.footnote).foregroundStyle(.secondary)
@@ -38,6 +38,7 @@ struct BackupScreen: View {
                     ValueRow(title: "Food entries", value: "\(preview.foods.count)")
                     ValueRow(title: "Saved meals", value: "\(preview.savedMeals?.count ?? 0)")
                     ValueRow(title: "Water / weights / plans", value: "\(preview.water?.count ?? 0) / \(preview.weights?.count ?? 0) / \(preview.planned?.count ?? 0)")
+                    ValueRow(title: "Dated targets", value: "\(preview.targets?.count ?? 0)")
                     ValueRow(title: "Profile", value: preview.profile.name ?? "Unnamed")
                     Text("Restoring replaces your current journal. A recovery copy of the existing file is saved on this device first; entries are not merged.").font(.footnote).foregroundStyle(.secondary)
                     Button("Replace journal with this backup", role: .destructive) { confirmRestore = true }.buttonStyle(.bordered).disabled(!diary.can(.restoreJournal))

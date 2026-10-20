@@ -72,6 +72,10 @@ struct DashboardView: View {
     private var todayFoods: [Food] { diary.foods.filter { Calendar.current.isDate($0.date, inSameDayAs: diary.now) }.sorted { $0.date > $1.date } }
     private var water: Int { diary.water.filter { Calendar.current.isDate($0.date, inSameDayAs: diary.now) }.reduce(0) { $0 + $1.milliliters } }
     private var plans: [PlannedMeal] { diary.planned.filter { Calendar.current.isDate($0.date, inSameDayAs: diary.now) }.sorted { $0.date < $1.date } }
+    private var macroTargets: NutrientValues? {
+        guard let record = diary.target(on: diary.now), let calories = record.calories, let allocation = record.allocation else { return nil }
+        return try? allocation.grams(calories: calories)
+    }
     var body: some View {
         PageCanvas {
             HStack(alignment: .top) {
@@ -90,12 +94,18 @@ struct DashboardView: View {
                     Text(diary.remaining.map { abs($0).formatted() } ?? diary.consumed.formatted()).font(.system(.largeTitle, design: .rounded).weight(.bold))
                     Text("kcal").font(.subheadline).foregroundStyle(.secondary)
                 }
-                if let target = diary.profile.target {
+                if let target = diary.currentTargetCalories {
                     ProgressView(value: min(Double(diary.consumed) / max(target, 1), 1)).tint(NourishStyle.accent)
                     HStack { Text("Logged: \(diary.consumed) kcal"); Spacer(); Text("Target: \(Int(target)) kcal") }.font(.caption).foregroundStyle(.secondary)
                 } else {
                     NavigationLink("Set a daily target", destination: GoalsScreen()).font(.subheadline.weight(.semibold))
                 }
+                if let summary = try? DailyNutrition(foods: todayFoods) {
+                    DisclosureGroup("Protein, carbs & fat") {
+                        MacroSummaryContent(summary: summary, target: macroTargets)
+                    }
+                }
+                NavigationLink("Daily nutrition summary", destination: DailyNutritionScreen()).font(.subheadline)
                 Button { adding = true } label: { Label("Log food", systemImage: "plus") }.buttonStyle(PrimaryAction())
             }
             SectionHeading(title: "Today's snapshot")

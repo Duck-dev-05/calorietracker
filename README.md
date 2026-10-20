@@ -205,3 +205,10 @@ Login removes the welcome/brand header, repeated section/field headings, decorat
 ## Google profile avatar — v0.17.3
 
 Google sign-in, restoration and refresh now map the SDK profile photo URL into the current account session. Profile and Dashboard use a shared circular avatar with initials during loading, absent photos or download failure. Only HTTPS photo URLs from Google sessions are used; no password, photo URL or image is added to journal backups. Avatar view identity resets with account/URL changes and logout clears the session. Local accounts keep initials. Privacy text notes the Google photo download; no extra Google scope is requested. Source: https://developers.google.com/identity/sign-in/ios/people. Runtime photo loading/offline fallback and account switching require phone verification.
+
+
+## v0.18.0 — Dated goals, estimates and daily nutrition
+
+Profile → Goals & calorie target now saves an effective start date and optional macro percentages, with grams preview. Review a maintenance estimate using actual measurements and explicitly selected equation coefficient/activity multiplier, or keep manual entry. Save Goals commits the draft; History retains prior revisions. Profile → Target history and Daily nutrition expose targets and per-nutrient recorded-data coverage. Dashboard includes a macro summary and daily nutrition link. Historical days use recorded effective targets; legacy undated targets are not backfilled into the past. Activity remains separate from food budgets.
+
+Journal schema is now 4. Older records migrate with original-file archiving on first save, and exports include target history/estimate inputs. Older schema-3 app builds cannot read new schema-4 files. Export a backup before version changes. Core regression and device-form/date/locale checks are required; compilation alone is not phone verification. Calculator method: https://pubmed.ncbi.nlm.nih.gov/2305711/ .

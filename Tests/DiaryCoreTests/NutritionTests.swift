@@ -53,7 +53,7 @@ final class NutritionTests: XCTestCase {
         legacy.foods = [food]
         let oldBytes = try JSONEncoder().encode(legacy)
         let restored = try DiarySnapshot.decode(oldBytes)
-        XCTAssertEqual(restored.schemaVersion, 3)
+        XCTAssertEqual(restored.schemaVersion, 4)
         XCTAssertEqual(restored.foods.first?.id, food.id)
         XCTAssertEqual(restored.foods.first?.date, food.date)
         XCTAssertEqual(restored.foods.first?.calories, 321)

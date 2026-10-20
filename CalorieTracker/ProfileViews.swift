@@ -25,7 +25,7 @@ struct ProfileScreen: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 95), alignment: .leading)], spacing: 14) {
                     measurement("Height", diary.profile.height.map { "\($0.formatted()) cm" } ?? "Not set")
                     measurement("Weight", diary.profile.weight.map { "\($0.formatted()) kg" } ?? "Not set")
-                    measurement("Daily target", diary.profile.target.map { "\(Int($0)) kcal" } ?? "Not set")
+                    measurement("Daily target", diary.currentTargetCalories.map { "\(Int($0)) kcal" } ?? "Not set")
                 }.padding(.vertical, 6)
             }
             Section("Personal settings") {
@@ -34,6 +34,8 @@ struct ProfileScreen: View {
                 NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Diet and ingredient preferences" : diary.profile.preferences, icon: "fork.knife", showsChevron: false) }
             }
             Section("History & progress") {
+                NavigationLink(destination: TargetHistoryScreen()) { Label("Target history", systemImage: "calendar") }
+                NavigationLink(destination: DailyNutritionScreen()) { Label("Daily nutrition", systemImage: "chart.bar") }
                 NavigationLink(destination: ProgressScreen()) { Label("Weekly progress", systemImage: "chart.bar") }
                 NavigationLink(destination: WeightHistoryScreen()) { Label("Weight history", systemImage: "scalemass") }
                 NavigationLink(destination: WaterScreen()) { Label("Water history", systemImage: "drop") }
@@ -123,7 +125,7 @@ struct SettingsScreen: View {
 struct PrivacyScreen: View {
     var body: some View {
         List {
-            Section("Stored on your device") { Text("Your profile, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
+            Section("Stored on your device") { Text("Your profile, dated calorie/macro targets and accepted estimate inputs, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
             Section("Apple Health") { Text("Nourish requests read access for the 26 types listed in the Health browser, including activity summaries, workouts, body measurements, heart/respiratory readings, sleep, mindfulness and nutrition. Choose which types to allow. Browser records remain in memory and are not included in diary exports. Importing a measurement requires review. Sharing height or weight requests write permission for that type and saves only the reviewed measurement. This is separate from local profile saving; no steps, workouts, energy or rings are written. Local deletion does not delete Health records.") }
             Section("Google sign-in") { Text("Google receives the OAuth sign-in request and shares basic profile information and email with Nourish. When available, Nourish downloads your Google profile photo for your avatar; the photo URL is session data and is not part of diary backups. Google credentials are managed by its SDK and Keychain; they are not included in journal backups. The app does not send food or Apple Health records to Google. Local email/password accounts are also available and stay in this installation’s private Keychain. Your journal remains on this device; signing in does not provide cloud sync or separate journals for different accounts.") }
             Section("Network & accounts") { Text("Google sign-in connects to Google. Local registration and login work on this device without a server; email ownership is not verified and password recovery is unavailable. No advertising or analytics service is integrated. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
@@ -139,7 +141,7 @@ struct HelpScreen: View {
             Section("Does planning count as eating?") { Text("No. Add meals to your planner, then mark them as eaten to move them into the diary. Future meals cannot be marked as eaten.") }
             Section("Where do calories come from?") { Text("Food diary calories are entered by you. Saved meals use the calories and ingredients you enter. No meals or measurements are preloaded. There is no barcode scanner, photo analysis or live nutrition database yet.") }
             Section("Why is Health data unavailable?") { Text("Check that Apple Health contains records and Nourish has read permission. Open Health → Overview and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
-            Section("How is my target calculated?") { Text("It is currently set manually. Recording your measurements and goal does not automatically calculate it. The app does not prescribe a diet.") }
+            Section("How is my target calculated?") { Text("Open Goals & calorie target to enter a manual target or review a maintenance estimate. Estimate inputs and method are shown before applying. Choosing a weight goal does not automatically add a deficit. Targets have effective dates; target history preserves prior records.") }
             Section("How do I keep a backup?") { Text("Open Profile → Backup & restore. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }
             Section("About Nourish") { Text("A personal food and activity journal for iPhone, with iOS 15 support and a TrollStore IPA build workflow.") }
         }.navigationTitle("Help & about")

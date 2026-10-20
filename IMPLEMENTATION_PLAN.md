@@ -473,3 +473,8 @@ This audit changes documentation only; no new application behavior or version is
 ### Combined measurements — 0.19.0 (35)
 
 Implemented Height & weight from Profile and Personal Details. Select either/both measurements, review actual dates, save locally and optionally share to Apple Health. Local commit is atomic and rejects stale/newer conflicting measurements; Health writes have separate results and retry skips successful records using the existing stable sync identities. No Health writes follow a failed local save. Medical ID is unchanged. Weight updates the current profile rather than adding a dated Progress entry; height date is used for Health sharing only. Existing per-metric sharing remains available. Section 9 step 2 is now implemented; device round-trip and partial-failure acceptance remain pending.
+
+
+### Data protection — 0.19.1 (36)
+
+Restore previews are tied to the journal revision: subsequent local edits require a fresh preview. Recovery reset/restore now compares the exact original file even after a corrupt-file load; unreadable originals cannot be replaced until safely reloaded. Export rejects stale in-memory data after external file changes. Backup & restore includes a nondestructive Recovery copies browser with per-file date/size, original-byte export and validated reviewed restore. Copies are not automatically deleted. Added regression tests for stale previews, changed corrupt files, stale exports, recovery retention/relaunch/access control and archive failure. Existing migration archives, schema-4 validation and publish-after-success atomic writes remain. Physical iPhone update/export/import verification remains pending; no user data was modified by this development work.

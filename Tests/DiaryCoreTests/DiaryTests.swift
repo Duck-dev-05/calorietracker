@@ -198,4 +198,97 @@ final class DiaryTests: XCTestCase {
         XCTAssertThrowsError(try saved.encoded())
     }
 
+    func testRecoveryCannotOverwriteFileChangedAfterCorruptLoad() async throws {
+        let account = try await signedInTestAccount()
+        try await MainActor.run {
+            let url = try temporaryURL()
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            try Data("corrupt original".utf8).write(to: url)
+            let diary = Diary(url: url, account: account)
+            XCTAssertTrue(diary.storageBlocked)
+            var newer = DiarySnapshot.empty
+            newer.foods = [Food(name: "Newer journal", calories: 350)]
+            let bytes = try newer.encoded()
+            try bytes.write(to: url)
+            XCTAssertFalse(diary.resetJournal())
+            XCTAssertEqual(try Data(contentsOf: url), bytes)
+            diary.retryLoad()
+            XCTAssertEqual(diary.foods.first?.name, "Newer journal")
+        }
+    }
+    func testRestoreRejectsPreviewAfterLocalEdits() async throws {
+        let account = try await signedInTestAccount()
+        try await MainActor.run {
+            let url = try temporaryURL()
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            let diary = Diary(url: url, account: account)
+            XCTAssertTrue(diary.upsertFood(Food(name: "Before preview", calories: 200)))
+            let preview = try DiarySnapshot.decode(diary.backupData())
+            let revision = diary.revision
+            XCTAssertTrue(diary.upsertFood(Food(name: "After preview", calories: 100)))
+            let current = try Data(contentsOf: url)
+            XCTAssertFalse(diary.replace(with: preview, expectedRevision: revision))
+            XCTAssertEqual(diary.foods.count, 2)
+            XCTAssertEqual(try Data(contentsOf: url), current)
+            XCTAssertTrue(diary.replace(with: preview, expectedRevision: diary.revision))
+            XCTAssertEqual(diary.foods.count, 1)
+        }
+    }
+    func testExportRejectsStaleInMemoryJournal() async throws {
+        let account = try await signedInTestAccount()
+        try await MainActor.run {
+            let url = try temporaryURL()
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            let diary = Diary(url: url, account: account)
+            XCTAssertTrue(diary.upsertFood(Food(name: "Original", calories: 100)))
+            var newer = DiarySnapshot.empty
+            newer.foods = [Food(name: "External update", calories: 200)]
+            let bytes = try newer.encoded()
+            try bytes.write(to: url)
+            XCTAssertThrowsError(try diary.backupData())
+            XCTAssertTrue(diary.storageBlocked)
+            XCTAssertEqual(try diary.originalData(), bytes)
+        }
+    }
+    func testRecoveryBrowserRetainsCopiesAcrossRelaunchAndExportsCorruptBytes() async throws {
+        let account = try await signedInTestAccount()
+        try await MainActor.run {
+            let url = try temporaryURL()
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            let original = Data("damaged but valuable bytes".utf8)
+            try original.write(to: url)
+            let diary = Diary(url: url, account: account)
+            XCTAssertTrue(diary.resetJournal())
+            let first = try XCTUnwrap(diary.lastArchiveURL)
+            XCTAssertTrue(diary.upsertFood(Food(name: "New entry", calories: 400)))
+            let beforeReset = try Data(contentsOf: url)
+            XCTAssertTrue(diary.resetJournal())
+            let reloaded = Diary(url: url, account: account)
+            let files = try reloaded.recoveryFiles()
+            XCTAssertEqual(files.count, 2)
+            XCTAssertEqual(try reloaded.recoveryData(named: first.lastPathComponent), original)
+            XCTAssertTrue(try files.contains { try reloaded.recoveryData(named: $0.lastPathComponent) == beforeReset })
+            XCTAssertThrowsError(try reloaded.recoveryData(named: "../diary.json"))
+            account.endLocalSession()
+            XCTAssertThrowsError(try reloaded.recoveryFiles())
+            XCTAssertThrowsError(try reloaded.recoveryData(named: first.lastPathComponent))
+        }
+    }
+    func testArchiveFailurePreventsResetAndRestore() async throws {
+        let account = try await signedInTestAccount()
+        try await MainActor.run {
+            let url = try temporaryURL()
+            defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            let diary = Diary(url: url, account: account)
+            XCTAssertTrue(diary.upsertFood(Food(name: "Keep this", calories: 321)))
+            let original = try Data(contentsOf: url)
+            // A file at the archive-directory path simulates an archive creation failure.
+            try Data("not a directory".utf8).write(to: url.deletingLastPathComponent().appendingPathComponent("Recovery"))
+            XCTAssertFalse(diary.resetJournal())
+            XCTAssertFalse(diary.replace(with: .empty))
+            XCTAssertEqual(try Data(contentsOf: url), original)
+            XCTAssertEqual(diary.foods.first?.name, "Keep this")
+        }
+    }
+
 }

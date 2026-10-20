@@ -17,6 +17,7 @@ struct BackupScreen: View {
     @State private var importing = false
     @State private var document = DiaryDocument()
     @State private var preview: DiarySnapshot?
+    @State private var previewRevision: UUID?
     @State private var selectedName = ""
     @State private var confirmRestore = false
     @State private var message: String?
@@ -45,6 +46,9 @@ struct BackupScreen: View {
                     Button("Cancel selection") { self.preview = nil }
                 }
             }
+            NavigationLink(destination: RecoveryArchivesScreen()) {
+                Surface { RouteRow(title: "Recovery copies", subtitle: "Browse, export or review preserved journals", icon: "clock.arrow.circlepath") }
+            }.buttonStyle(.plain)
             if diary.lastArchiveURL != nil {
                 Surface {
                     SectionHeading(title: "Before your last replacement")
@@ -69,16 +73,17 @@ struct BackupScreen: View {
                 let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
                 guard size <= DiarySnapshot.maxFileSize else { throw DiaryFailure.invalid("Choose a backup smaller than 10 MB.") }
                 preview = try DiarySnapshot.decode(Data(contentsOf: url))
+                previewRevision = diary.revision
                 selectedName = url.lastPathComponent; message = nil
             } catch { message = "Could not import backup: \(error.localizedDescription)" }
         }
         .alert("Replace your journal?", isPresented: $confirmRestore) {
             Button("Replace journal", role: .destructive) {
-                if let preview, diary.replace(with: preview) { self.preview = nil; message = "Your journal was restored. The previous file has been preserved." }
+                if let preview, diary.replace(with: preview, expectedRevision: previewRevision) { self.preview = nil; message = "Your journal was restored. The previous file has been preserved." }
                 else { message = diary.storageError }
             }
             Button("Cancel", role: .cancel) { }
-        } message: { Text("This replaces the profile and all food, saved meal, water, weight and plan entries. A copy of the existing file is kept first.") }
+        } message: { Text("This replaces the profile, dated targets and all food, saved meal, water, weight and plan entries. A copy of the existing file is kept first.") }
     }
     private func exportCurrent() {
         do { document = DiaryDocument(data: try diary.backupData()); exporting = true; message = nil }
@@ -121,5 +126,78 @@ struct StorageRecoveryScreen: View {
             Button("Archive and reset", role: .destructive) { if !diary.resetJournal() { message = diary.storageError } }
             Button("Cancel", role: .cancel) { }
         } message: { Text("The original file will be kept in a recovery copy. Your current profile and journal will be replaced with an empty journal.") }
+    }
+}
+
+
+struct RecoveryArchivesScreen: View {
+    @EnvironmentObject var diary: Diary
+    @State private var files: [URL] = []
+    @State private var message: String?
+    @State private var document = DiaryDocument()
+    @State private var exporting = false
+    @State private var preview: DiarySnapshot?
+    @State private var previewRevision: UUID?
+    @State private var selectedName = ""
+    @State private var confirming = false
+    var body: some View {
+        List {
+            Section {
+                Text("Copies are preserved before migration, restore or reset. They remain on this device; export important copies before uninstalling. Accounts, passwords and Apple Health records are not journal backups.")
+                    .font(.footnote).fixedSize(horizontal: false, vertical: true)
+            }
+            if let preview {
+                Section("Restore preview") {
+                    Text(selectedName).font(.caption)
+                    ValueRow(title: "Journal entries", value: "\(preview.entryCount)")
+                    ValueRow(title: "Food / saved meals", value: "\(preview.foods.count) / \(preview.savedMeals?.count ?? 0)")
+                    ValueRow(title: "Dated targets", value: "\(preview.targets?.count ?? 0)")
+                    Text("Replaces the current journal after preserving another recovery copy. No entries are merged.")
+                        .font(.footnote)
+                    Button("Restore reviewed copy", role: .destructive) { confirming = true }
+                    Button("Cancel preview") { self.preview = nil }
+                }
+            }
+            Section("Preserved files") {
+                if files.isEmpty { Text("No recovery copies yet.").foregroundStyle(.secondary) }
+                ForEach(files, id: \.lastPathComponent) { file in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(file.lastPathComponent).font(.caption).fixedSize(horizontal: false, vertical: true)
+                        if let values = try? file.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]) {
+                            if let date = values.contentModificationDate { Text(date.formatted(date: .abbreviated, time: .shortened)).font(.subheadline) }
+                            if let size = values.fileSize { Text(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)).font(.caption).foregroundStyle(.secondary) }
+                        }
+                        Button("Export original bytes") {
+                            do { document = DiaryDocument(data: try diary.recoveryData(named: file.lastPathComponent)); exporting = true }
+                            catch { message = error.localizedDescription }
+                        }
+                        Button("Review for restore") {
+                            self.preview = nil
+                            do {
+                                preview = try DiarySnapshot.decode(diary.recoveryData(named: file.lastPathComponent))
+                                previewRevision = diary.revision; selectedName = file.lastPathComponent; message = nil
+                            } catch { message = "This copy cannot be restored: \(error.localizedDescription) You can still export its original bytes." }
+                        }
+                    }.padding(.vertical, 4)
+                }
+            }
+            if let message { Section { Text(message).font(.footnote).fixedSize(horizontal: false, vertical: true) } }
+        }
+        .navigationTitle("Recovery copies").navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: reload)
+        .fileExporter(isPresented: $exporting, document: document, contentType: .json, defaultFilename: "Nourish-recovery-copy") { result in
+            switch result { case .success: message = "Recovery copy exported."; case .failure(let error): message = error.localizedDescription }
+        }
+        .alert("Replace your journal?", isPresented: $confirming) {
+            Button("Restore copy", role: .destructive) {
+                if let preview, diary.replace(with: preview, expectedRevision: previewRevision) {
+                    self.preview = nil; message = "Restored. The previous journal was preserved."; reload()
+                } else { message = diary.storageError }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("The reviewed copy will replace all profile and journal data, including targets. Your existing file is archived first.") }
+    }
+    private func reload() {
+        do { files = try diary.recoveryFiles() } catch { message = error.localizedDescription }
     }
 }

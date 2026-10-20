@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import HealthKit
 
-@MainActor final class HealthKitProvider: HealthReadingProvider {
+@MainActor final class HealthKitProvider: HealthReadingProvider, HealthWritingProvider {
     private let store = HKHealthStore()
     private let authorized: () -> Bool
     init(authorized: @escaping () -> Bool) { self.authorized = authorized }
@@ -16,6 +16,26 @@ import HealthKit
         switch metric { case .steps: return .count(); case .activeEnergy: return .kilocalorie(); case .height: return .meterUnit(with: .centi); case .weight: return .gramUnit(with: .kilo) }
     }
     func requestAccess() async throws { guard authorized() else { throw AccessDenied(permission: .readHealth) }; try await store.requestAuthorization(toShare: [], read: Set(HealthMetric.allCases.map { type($0) })) }
+    func requestWriteAccess(_ metric: HealthMetric) async throws {
+        guard authorized() else { throw AccessDenied(permission: .shareHealth) }
+        guard metric == .height || metric == .weight else { throw DiaryFailure.invalid("Only body measurements can be shared.") }
+        try await store.requestAuthorization(toShare: [type(metric)], read: [])
+        guard store.authorizationStatus(for: type(metric)) == .sharingAuthorized else {
+            throw DiaryFailure.invalid("Allow Nourish to write this measurement in Apple Health permissions, then try again.")
+        }
+    }
+    func save(_ measurement: HealthMeasurement) async throws {
+        guard authorized() else { throw AccessDenied(permission: .shareHealth) }
+        try measurement.validate()
+        let quantityType = type(measurement.metric)
+        guard store.authorizationStatus(for: quantityType) == .sharingAuthorized else {
+            throw DiaryFailure.invalid("Write access is off for this measurement. Nothing was saved to Apple Health.")
+        }
+        let sample = HKQuantitySample(type: quantityType, quantity: HKQuantity(unit: unit(measurement.metric), doubleValue: measurement.value),
+            start: measurement.date, end: measurement.date,
+            metadata: [HKMetadataKeySyncIdentifier: measurement.syncID, HKMetadataKeySyncVersion: 1])
+        try await store.save(sample)
+    }
     func read(_ metric: HealthMetric, now: Date) async throws -> HealthReading? {
         guard authorized() else { throw AccessDenied(permission: .readHealth) }
         let quantityType = type(metric), quantityUnit = unit(metric)
@@ -44,13 +64,18 @@ import HealthKit
 }
 @MainActor final class HealthService: ObservableObject {
     private let monitor: HealthMonitor
+    private let sharing: HealthSharingController
     private var subscription: AnyCancellable?
     private let authorized: () -> Bool
     init(authorized: @escaping () -> Bool) {
         self.authorized = authorized
-        monitor = HealthMonitor(provider: HealthKitProvider(authorized: authorized))
-        subscription = monitor.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        let provider = HealthKitProvider(authorized: authorized)
+        monitor = HealthMonitor(provider: provider)
+        sharing = HealthSharingController(provider: provider, authorized: authorized)
+        subscription = Publishers.Merge(monitor.objectWillChange, sharing.objectWillChange).sink { [weak self] _ in self?.objectWillChange.send() }
     }
+    var sharingBusy: Bool { sharing.busy }
+    func share(_ measurement: HealthMeasurement) async throws { try await sharing.share(measurement) }
     var steps: Double? { value(.steps) }
     var activeEnergy: Double? { value(.activeEnergy) }
     var height: Double? { value(.height) }

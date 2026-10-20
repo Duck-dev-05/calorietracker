@@ -5,6 +5,9 @@ struct HealthMetricScreen: View {
     @EnvironmentObject var diary: Diary
     let metric: HealthMetric
     @State private var imported = false
+    @State private var reviewingImport = false
+    @State private var pendingImport: HealthReading?
+    @State private var importError: String?
     private var result: MetricResult { health.result(metric) }
     var body: some View {
         PageCanvas {
@@ -25,22 +28,42 @@ struct HealthMetricScreen: View {
                 if metric.isDaily { Text("This is a cumulative Apple Health total. A single recording source and sample time are not available for this aggregate.").font(.footnote) }
                 Text("Results are marked for refresh after 15 minutes. Daily activity also expires when the local day or timezone changes. Old values aren't shown as current.").font(.footnote).foregroundStyle(.secondary)
             }
-            if (metric == .height || metric == .weight), let value = health.value(metric) {
+            if (metric == .height || metric == .weight), health.value(metric) != nil {
                 Surface {
                     Text("Review the measurement date before importing. An older weight cannot replace a newer profile measurement.").font(.footnote)
-                    Button("Use this measurement in my profile") {
-                        if metric == .height { imported = diary.transaction { $0.profile.height = value } }
-                        else if let date = result.reading?.sampleDate { imported = diary.importWeight(value, measuredAt: date, source: result.reading?.source.map { "Apple Health · \($0)" } ?? "Apple Health") }
-                    }.buttonStyle(PrimaryAction())
+                    ValueRow(title: "Current profile", value: (metric == .height ? diary.profile.height : diary.profile.weight).map { "\($0.formatted()) \(metric.unit)" } ?? "Not set")
+                    Button("Review import to profile") {
+                        imported = false; importError = nil
+                        pendingImport = result.reading
+                        reviewingImport = pendingImport?.sampleDate != nil
+                    }.buttonStyle(PrimaryAction()).disabled(result.reading?.sampleDate == nil)
+                    if let importError { Text(importError).font(.footnote).foregroundStyle(.red) }
                     if imported { Label("Profile updated", systemImage: "checkmark.circle").font(.subheadline) }
                     if let error = diary.storageError { Text(error).font(.footnote).foregroundStyle(.red) }
                 }
+            }
+            if metric == .height || metric == .weight {
+                NavigationLink(destination: ShareMeasurementScreen(metric: metric)) {
+                    Surface { RouteRow(title: "Save \(metric.title.lowercased()) to Apple Health", subtitle: "Choose a measurement and review before sharing", icon: "square.and.arrow.up", color: .pink) }
+                }.buttonStyle(.plain)
             }
             Surface {
                 Text("HealthKit does not disclose whether an empty query means no records or restricted read access. Manage permissions in Apple Health → your profile → Apps → Nourish. Manual tracking continues without Health access.").font(.footnote).foregroundStyle(.secondary)
             }
         }.navigationTitle(metric.title).navigationBarTitleDisplayMode(.inline)
         .onAppear { health.expireOldResults() }
+        .onChange(of: result.fetchedAt) { _ in imported = false }
+        .confirmationDialog("Use this Health measurement?", isPresented: $reviewingImport, titleVisibility: .visible) {
+            Button("Update my profile") {
+                guard let pendingImport, let date = pendingImport.sampleDate else { return }
+                do { try HealthMeasurement(metric: metric, value: pendingImport.value, date: date).validate() } catch { importError = error.localizedDescription; return }
+                if metric == .height { imported = diary.transaction { $0.profile.height = pendingImport.value } }
+                else { imported = diary.importWeight(pendingImport.value, measuredAt: date, source: pendingImport.source.map { "Apple Health · \($0)" } ?? "Apple Health") }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            if let pendingImport, let date = pendingImport.sampleDate { Text("\(pendingImport.value.formatted()) \(metric.unit) · \(date.formatted(date: .abbreviated, time: .shortened))\nRecorded by: \(pendingImport.source ?? "Apple Health")\nThis updates your local profile only.") }
+        }
     }
 }
 struct WeightHistoryScreen: View {

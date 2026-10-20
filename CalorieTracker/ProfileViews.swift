@@ -80,7 +80,14 @@ struct HealthScreen: View {
                 Toggle("Refresh when opening Nourish", isOn: $enabled)
                 Text("Turning this off stops automatic reads. Revoke access in Apple Health → your profile → Apps → Nourish.").font(.footnote).foregroundStyle(.secondary)
             }
-            ForEach(HealthMetric.allCases) { metric in
+            Surface {
+                SectionHeading(title: "Body measurements", subtitle: "Import from Health or review a measurement to share.")
+                NavigationLink(destination: HealthMetricScreen(metric: .height)) { RouteRow(title: "Height", subtitle: "Review Health value or share your measurement", icon: "ruler") }.buttonStyle(.plain)
+                Divider()
+                NavigationLink(destination: HealthMetricScreen(metric: .weight)) { RouteRow(title: "Weight", subtitle: "Review Health value or share your measurement", icon: "scalemass") }.buttonStyle(.plain)
+                Text("Fitness uses Apple's Health data. Nourish shares body measurements only; it does not change activity rings or goals.").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(HealthMetric.allCases.filter { $0.isDaily }) { metric in
                 NavigationLink(destination: HealthMetricScreen(metric: metric)) {
                     Surface {
                         RouteRow(title: metric.title, subtitle: health.result(metric).status.rawValue, icon: metric.icon, color: metric.isDaily ? NourishStyle.accent : .pink)
@@ -88,7 +95,7 @@ struct HealthScreen: View {
                     }
                 }.buttonStyle(.plain)
             }
-            Text("An empty result may mean no records or restricted read access. No Health data is written by Nourish.").font(.footnote).foregroundStyle(.secondary)
+            Text("An empty result may mean no records or restricted read access. Height and weight are written only after you review sharing and allow the selected permission.").font(.footnote).foregroundStyle(.secondary)
         }.navigationTitle("Apple Health").navigationBarTitleDisplayMode(.inline).onAppear { health.expireOldResults() }
     }
 }
@@ -127,7 +134,7 @@ struct PrivacyScreen: View {
     var body: some View {
         List {
             Section("Stored on your device") { Text("Your profile, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
-            Section("Apple Health") { Text("Nourish requests read access to height, body mass, steps and active energy only when you choose to connect. Health results are displayed in memory. Measurements are saved to your profile only when you import them.") }
+            Section("Apple Health") { Text("Nourish reads height, body mass, steps and active energy when you connect. Importing a measurement requires review. Sharing height or weight requests write permission for that type and saves only the reviewed measurement. This is separate from local profile saving; no steps, workouts, energy or rings are written. Local deletion does not delete Health records.") }
             Section("Google sign-in") { Text("Google receives the OAuth sign-in request and shares basic profile information and email with Nourish. Google credentials are managed by its SDK and Keychain; they are not included in journal backups. The app does not send food or Apple Health records to Google. Local email/password accounts are also available and stay in this installation’s private Keychain. Your journal remains on this device; signing in does not provide cloud sync or separate journals for different accounts.") }
             Section("Network & accounts") { Text("Google sign-in connects to Google. Local registration and login work on this device without a server; email ownership is not verified and password recovery is unavailable. No advertising or analytics service is integrated. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
             Section("Backups & recovery") { NavigationLink("Open backup & restore", destination: BackupScreen()); Text("Before replacing or resetting a diary, Nourish preserves the old file on this device. Keep an exported copy before uninstalling the app.") }

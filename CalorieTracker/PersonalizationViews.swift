@@ -83,6 +83,8 @@ struct PersonalDetailsScreen: View {
     @State private var loggingWeight = false
     @State private var weightBeforeLogging: Double?
     @State private var weightAtLoad: Double?
+    @State private var heightAtLoad: Double?
+    @State private var heightTextAtLoad = ""
     @State private var loaded = false
     @FocusState private var textFocused: Bool
     private let activities = ["Not specified", "Mostly seated", "Some daily movement", "Regular exercise", "Very active days"]
@@ -138,10 +140,10 @@ struct PersonalDetailsScreen: View {
     private var healthPanel: some View {
         Surface {
             HStack { IconTile(icon: "heart.fill", color: .pink); VStack(alignment: .leading, spacing: 4) { Text("Less typing. More you.").font(.headline); Text("Import from Apple Health").font(.caption).foregroundStyle(.secondary) } }
-            if let h = health.height { Button("Use height · \(h, specifier: "%.1f") cm") { height = h.formatted(.number.grouping(.never)) }.buttonStyle(.bordered) }
+            NavigationLink(destination: HealthMetricScreen(metric: .height)) { Text("Review Health height & measurement date") }.font(.subheadline)
             NavigationLink(destination: HealthMetricScreen(metric: .weight)) { Text("Review Health weight & measurement date") }.font(.subheadline)
             NavigationLink(destination: HealthScreen()) { Label("Open Health connection", systemImage: "arrow.up.right").font(.subheadline.weight(.semibold)) }
-            Text("Imported values fill your draft. Review them before saving.").font(.caption).foregroundStyle(.secondary)
+            Text("Health import updates your saved profile separately. Reopen this page afterwards to see imported values.").font(.caption).foregroundStyle(.secondary)
         }
     }
     private var activityDetail: String {
@@ -155,19 +157,27 @@ struct PersonalDetailsScreen: View {
     }
     private func load() {
         if loaded {
+            if height == heightTextAtLoad && diary.profile.height != heightAtLoad {
+                height = diary.profile.height.map(NutritionDraft.text) ?? ""
+                heightAtLoad = diary.profile.height; heightTextAtLoad = height
+            }
             if NumberDraftField.value(weight, range: 20...400) == weightAtLoad && diary.profile.weight != weightAtLoad {
                 weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? ""; weightAtLoad = diary.profile.weight
             }
             return
         }
         weightAtLoad = diary.profile.weight
-        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height?.formatted(.number.grouping(.never)) ?? ""; weight = p.weight?.formatted(.number.grouping(.never)) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; loaded = true
+        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height?.formatted(.number.grouping(.never)) ?? ""; weight = p.weight?.formatted(.number.grouping(.never)) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; heightAtLoad = p.height; heightTextAtLoad = height; loaded = true
     }
     private func save() {
         guard valid else { return }
         let h = NumberDraftField.value(height, range: 80...250), w = NumberDraftField.value(weight, range: 20...400)
         if diary.transaction({ saved in
-            saved.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); saved.profile.age = Int(age); saved.profile.height = h
+            saved.profile.name = name.trimmingCharacters(in: .whitespacesAndNewlines); saved.profile.age = Int(age)
+            if height != heightTextAtLoad {
+                guard saved.profile.height == heightAtLoad else { throw DiaryFailure.invalid("Height changed while this page was open. Reopen Personal details before editing height.") }
+                saved.profile.height = h
+            }
             if saved.profile.weight != w { saved.profile.weight = w; saved.profile.weightMeasuredAt = w == nil ? nil : diary.now; saved.profile.weightSource = w == nil ? nil : "Profile edit"; saved.profile.weightEntryID = nil }
             saved.profile.activityLevel = activity == "Not specified" ? nil : activity
         }) { dismiss() }

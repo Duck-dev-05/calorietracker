@@ -13,9 +13,9 @@ enum AccountValidation {
     }
 }
 enum AppPermission: String, CaseIterable, Identifiable {
-    case readJournal, editJournal, exportJournal, restoreJournal, readHealth
+    case readJournal, editJournal, exportJournal, restoreJournal, readHealth, shareHealth
     var id: String { rawValue }
-    var title: String { switch self { case .readJournal: return "View journal"; case .editJournal: return "Edit journal and profile"; case .exportJournal: return "Export journal and recovery files"; case .restoreJournal: return "Restore or reset journal"; case .readHealth: return "Read this device's Apple Health data" } }
+    var title: String { switch self { case .readJournal: return "View journal"; case .editJournal: return "Edit journal and profile"; case .exportJournal: return "Export journal and recovery files"; case .restoreJournal: return "Restore or reset journal"; case .readHealth: return "Read this device's Apple Health data"; case .shareHealth: return "Save measurements to Apple Health" } }
 }
 struct AccountSession {
     let id: String

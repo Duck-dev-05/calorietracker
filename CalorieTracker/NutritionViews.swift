@@ -67,18 +67,36 @@ struct NutritionSelectionSection: View {
     @Binding var snapshot: NutritionSnapshot?
     var legacyCalories: Int?
     @State private var editing = false
+    @State private var quickEntry = false
+    @State private var loaded = false
+    @State private var quick = NutritionDraft()
     var body: some View {
-        Section("Nutrition & portion") {
-            if let snapshot {
-                ValueRow(title: "Energy", value: "\((try? snapshot.roundedCalories()) ?? 0) kcal")
-                NutritionSnapshotRows(snapshot: snapshot)
+        Section("Calories & nutrition") {
+            if quickEntry {
+                NumberDraftField(title: "Calories (kcal)", text: $quick.calories, range: 1...10000)
+                Text("Enter calories for the portion you want to save.").font(.caption).foregroundStyle(.secondary)
+                DisclosureGroup("Add macros (optional)") {
+                    NumberDraftField(title: "Protein (g)", text: $quick.protein, range: 0...2500, isOptional: true)
+                    NumberDraftField(title: "Carbs (g)", text: $quick.carbohydrate, range: 0...2500, isOptional: true)
+                    NumberDraftField(title: "Fat (g)", text: $quick.fat, range: 0...2500, isOptional: true)
+                    Text("Leave values blank if you don't know them.").font(.caption).foregroundStyle(.secondary)
+                }
+                if !quick.calories.isEmpty && snapshot == nil { Text("Check calories and any macros you entered before saving.").font(.caption).foregroundStyle(.red) }
+            } else if let snapshot {
+                ValueRow(title: "Calories", value: "\((try? snapshot.roundedCalories()) ?? 0) kcal")
+                Text("\(snapshot.quantity.formatted()) \(snapshot.unit.title)").font(.caption).foregroundStyle(.secondary)
+                DisclosureGroup("Nutrition details") { NutritionSnapshotRows(snapshot: snapshot) }
             } else if let legacyCalories {
-                ValueRow(title: "Recorded energy", value: "\(legacyCalories) kcal")
-                Text("Legacy entry: portion and macros are unknown. Editing its name or date preserves this information.").font(.caption).foregroundStyle(.secondary)
-            } else { Text("Add a reference amount, nutrients and the portion to record.").font(.subheadline).foregroundStyle(.secondary) }
-            Button(snapshot == nil && legacyCalories == nil ? "Add nutrition & portion" : "Review / edit nutrition") { editing = true }
-        }.sheet(isPresented: $editing) {
-            NutritionEditorScreen(snapshot: snapshot, legacyCalories: legacyCalories) { snapshot = $0 }.adaptiveEntrySheet()
+                ValueRow(title: "Calories", value: "\(legacyCalories) kcal")
+                Text("Portion and macros were not recorded.").font(.caption).foregroundStyle(.secondary)
+            }
+            Button(quickEntry ? "Use a label or change portion" : "Edit nutrition & portion") { editing = true }
+        }.onAppear {
+            guard !loaded else { return }; loaded = true
+            quickEntry = snapshot == nil && legacyCalories == nil
+        }.onChange(of: quick) { value in snapshot = try? value.snapshot() }
+        .sheet(isPresented: $editing) {
+            NutritionEditorScreen(snapshot: snapshot, legacyCalories: legacyCalories) { snapshot = $0; quickEntry = false }.adaptiveEntrySheet()
         }
     }
 }

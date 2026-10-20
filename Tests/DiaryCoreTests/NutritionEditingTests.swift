@@ -2,6 +2,16 @@ import XCTest
 @testable import DiaryCore
 
 final class NutritionEditingTests: XCTestCase {
+    func testQuickEntryOnlyNeedsCaloriesAndNeverInventsMacros() throws {
+        var draft = NutritionDraft()
+        XCTAssertThrowsError(try draft.snapshot())
+        draft.calories = "250"
+        XCTAssertEqual(try draft.snapshot(), .manual(calories: 250))
+        draft.calories = "invalid"
+        XCTAssertNil(try? draft.snapshot())
+        draft.calories = "250"; draft.protein = "bad"
+        XCTAssertNil(try? draft.snapshot())
+    }
     private func sample() -> NutritionSnapshot {
         NutritionSnapshot(referenceQuantity: 100, referenceUnit: .gram,
             referenceNutrients: NutrientValues(calories: 123.45678901234567, protein: 0.000000000000000123, carbohydrate: 12.345678901234567, fat: 0),

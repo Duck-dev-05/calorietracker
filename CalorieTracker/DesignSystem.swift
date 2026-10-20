@@ -157,3 +157,31 @@ struct QuickActionTile: View {
         }.frame(maxHeight: .infinity, alignment: .top)
     }
 }
+
+/// One consistent primary action stays reachable above the keyboard and tab bar.
+struct EditorActionBar: View {
+    let title: String
+    let enabled: Bool
+    let hint: String
+    let action: () -> Void
+    var body: some View {
+        VStack(spacing: 8) {
+            Button(title, action: action).buttonStyle(PrimaryAction()).disabled(!enabled)
+            if !hint.isEmpty { Text(hint).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true) }
+        }.padding(.horizontal, 20).padding(.vertical, 12).frame(maxWidth: .infinity)
+            .background(.regularMaterial).overlay(alignment: .top) { Divider() }
+    }
+}
+
+struct DiscardDraftButton: View {
+    let hasChanges: Bool
+    let discard: () -> Void
+    @State private var confirming = false
+    var body: some View {
+        Button("Cancel") { if hasChanges { confirming = true } else { discard() } }
+            .confirmationDialog("Discard your changes?", isPresented: $confirming, titleVisibility: .visible) {
+                Button("Discard changes", role: .destructive, action: discard)
+                Button("Keep editing", role: .cancel) { }
+            }
+    }
+}

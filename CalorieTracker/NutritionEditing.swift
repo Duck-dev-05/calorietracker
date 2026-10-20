@@ -1,7 +1,7 @@
 import Foundation
 
 /// Editable text stays separate from exact stored values. Unchanged fields never round-trip through display formatting.
-struct NutritionDraft {
+struct NutritionDraft: Equatable {
     var referenceQuantity = "1"
     var referenceUnit: NutritionUnit = .serving
     var quantity = "1"

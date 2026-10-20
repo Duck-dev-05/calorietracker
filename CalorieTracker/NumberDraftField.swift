@@ -23,7 +23,7 @@ struct NumberDraftField: View {
                 Text(title); Spacer(minLength: 12)
                 TextField(title, text: $text).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(minWidth: 70, maxWidth: 120).focused($focused)
             }
-            if !(isOptional && text.isEmpty) && Self.value(text, range: range) == nil {
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && Self.value(text, range: range) == nil {
                 Text("Enter a number from \(range.lowerBound.formatted()) to \(range.upperBound.formatted()).").font(.caption).foregroundStyle(.red)
             }
         }.padding(.vertical, 3).toolbar {

@@ -354,3 +354,10 @@ Phase 1 is still partial overall: dated calorie/macro targets, researched calcul
 ## Create meal workflow — v0.13.1
 
 Meals has Create Meal entry points at the top, navigation toolbar and empty state. The editor guides name -> multiline ingredients/serving -> reviewed nutrition -> Save Meal, with validation and explicit collection-only behavior. A successful save confirmation opens the exact saved meal to log/plan it, even if dietary filters hide it in the list. Failed writes leave the editor open with its draft and error. No mock meals or inferred ingredient nutrition are added.
+
+
+## Usability simplification — v0.14.0
+
+New food/meal/plan drafts accept calories directly in the main form; optional macros are collapsed and detailed label/portion editing remains available separately. Existing precise snapshots and legacy unknown nutrition are retained until deliberately edited. Food and meal editors use one persistent primary Save action, explain incomplete requirements and confirm Cancel when applied draft changes exist; swipe dismissal is disabled for those dirty forms. Today removes its tall marketing block and duplicate water destination. Meals keeps one Create action; Profile uses clear labels; account pages are shorter with optional Google sharing details. Initial onboarding can be postponed from its first page without writing measurements or targets. Blank fields do not show red errors before any input. No storage/account schema or nutrition arithmetic changes.
+
+Verification: quick-entry domain regression plus existing configuration/core tests and iOS compilation; actual iPhone small-screen/Dynamic Type/keyboard/VoiceOver and task-completion checks remain pending. Unsaved un-applied label-editor text can still be discarded within that editor; no claim of global draft persistence or full usability testing.

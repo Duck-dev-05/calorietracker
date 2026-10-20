@@ -27,7 +27,7 @@ struct ContentView: View {
                     AdaptiveNavigation { SignInRequired { DiaryView() } }.tabItem { Label("Diary", systemImage: "book.closed.fill") }
                     AdaptiveNavigation { SignInRequired { MealsView() } }.tabItem { Label("Meals", systemImage: "fork.knife") }
                     AdaptiveNavigation { SignInRequired { ProgressScreen() } }.tabItem { Label("Progress", systemImage: "chart.bar.fill") }
-                    AdaptiveNavigation { ProfileScreen() }.tabItem { Label("You", systemImage: "person.crop.circle") }
+                    AdaptiveNavigation { ProfileScreen() }.tabItem { Label("Profile", systemImage: "person.crop.circle") }
                 }.modifier(AdaptiveTabs()).id(account.isAuthenticated)
             }
         }.tint(nourishGreen)
@@ -76,13 +76,7 @@ struct DashboardView: View {
             PageIntro(eyebrow: diary.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()), title: account.session.map { "Hello, \($0.displayName)." } ?? "Your day, in balance.", detail: "Your food, movement and next steps in one place.")
             VStack(spacing: 20) {
                 HStack { Label("Daily nourishment", systemImage: "sparkles").font(.subheadline.weight(.semibold)); Spacer(); Text("TODAY").font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.7)) }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), alignment: .center)], spacing: 20) {
-                    CalorieRing(eaten: diary.consumed, target: diary.profile.target).frame(maxWidth: .infinity)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Make today\nfeel good.").font(.system(.title, design: .default).weight(.bold))
-                        Text("Log your food as you go. Your remaining calories update with each entry.").font(.subheadline).foregroundStyle(.white.opacity(0.8))
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }
+                CalorieRing(eaten: diary.consumed, target: diary.profile.target).frame(maxWidth: .infinity)
                 HStack {
                     balance("EATEN", "\(diary.consumed)")
                     Spacer(); Rectangle().fill(.white.opacity(0.2)).frame(width: 1, height: 36); Spacer()
@@ -91,19 +85,17 @@ struct DashboardView: View {
                 if let remaining = diary.remaining, remaining < 0 { Text("\(-remaining) kcal above today's target").font(.footnote).foregroundStyle(.white.opacity(0.85)) }
             }.padding(24).foregroundStyle(.white).background(LinearGradient(colors: [NourishStyle.forest, Color(red: 0.06, green: 0.28, blue: 0.30)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 30))
             if diary.profile.target == nil { NavigationLink(destination: GoalsScreen()) { Label("Set your calorie target", systemImage: "target") } }
-            SectionHeading(title: "A little action, a better day")
+            SectionHeading(title: "Quick actions")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 12) {
                 Button { adding = true } label: { QuickActionTile(title: "Log food", subtitle: "Record what you ate", icon: "plus") }.buttonStyle(.plain)
-                NavigationLink(destination: WaterScreen()) { QuickActionTile(title: "Add water", subtitle: "Keep hydration in view", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
+                NavigationLink(destination: WaterScreen()) { QuickActionTile(title: "Add water", subtitle: "\(water) mL today", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
             }
-            SectionHeading(title: "Your daily rhythm", subtitle: "Movement and hydration, at a glance")
+            SectionHeading(title: "Activity")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], alignment: .leading, spacing: 12) {
                 NavigationLink(destination: HealthMetricScreen(metric: .steps)) { stat("Steps", health.steps.map { Int($0).formatted() } ?? "—", "figure.walk", NourishStyle.accent) }.buttonStyle(.plain)
                 NavigationLink(destination: HealthMetricScreen(metric: .activeEnergy)) { stat("Active kcal", health.activeEnergy.map { Int($0).formatted() } ?? "—", "flame.fill", NourishStyle.peach) }.buttonStyle(.plain)
             }
             Surface {
-                NavigationLink(destination: WaterScreen()) { RouteRow(title: "Stay refreshed", subtitle: "\(water) mL of water logged today", icon: "drop.fill", color: NourishStyle.blue) }.buttonStyle(.plain)
-                Divider()
                 NavigationLink(destination: HealthScreen()) { RouteRow(title: "Apple Health", subtitle: "View your activity and measurements", icon: "heart.fill", color: .pink) }.buttonStyle(.plain)
             }
             HStack { SectionHeading(title: "On your plate"); Spacer(); NavigationLink("Planner", destination: MealPlanScreen()).font(.subheadline.weight(.semibold)) }
@@ -169,10 +161,13 @@ struct AddFoodView: View {
     var existing: Food? = nil
     @State private var nutrition: NutritionSnapshot?
     @State private var loaded = false
+    @State private var startingDate = Date()
     @State private var name = ""
     @State private var category = "Breakfast"
     @State private var date = Date()
     @FocusState private var fieldFocused: Bool
+    private var dirty: Bool { loaded && (name != (existing?.name ?? "") || nutrition != existing?.nutrition || category != (existing?.category ?? "Breakfast") || date != startingDate) }
+    private var valid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 500 && validCalories != nil }
     private var validCalories: Int? { nutrition.flatMap { try? $0.roundedCalories() } ?? existing?.calories }
     var body: some View {
         AdaptiveNavigation {
@@ -186,22 +181,24 @@ struct AddFoodView: View {
                 if let error = diary.storageError { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }.navigationTitle(existing == nil ? "Log food" : "Edit food").navigationBarTitleDisplayMode(.inline).toolbar {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { fieldFocused = false } }
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        guard let value = validCalories else { return }
-                        var food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: value, date: date, category: category, nutrition: nutrition)
-                        if let existing { food.id = existing.id }
-                        if diary.upsertFood(food) { dismiss() }
-                    }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 500 || validCalories == nil)
-                }
+                ToolbarItem(placement: .cancellationAction) { DiscardDraftButton(hasChanges: dirty) { dismiss() } }
+
             }
+        }.interactiveDismissDisabled(dirty).safeAreaInset(edge: .bottom, spacing: 0) {
+            EditorActionBar(title: existing == nil ? "Log food" : "Save changes", enabled: valid, hint: valid ? "" : "Add a food name and valid calories.", action: save)
         }.onAppear {
             guard !loaded else { return }; loaded = true; nutrition = existing?.nutrition
             name = existing?.name ?? ""
-            category = existing?.category ?? "Breakfast"; date = existing?.date ?? initialDate
+            category = existing?.category ?? "Breakfast"; date = existing?.date ?? initialDate; startingDate = date
         }
     }
+    private func save() {
+        guard valid, let calories = validCalories else { return }
+        var food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: calories, date: date, category: category, nutrition: nutrition)
+        if let existing { food.id = existing.id }
+        if diary.upsertFood(food) { dismiss() }
+    }
+
 }
 struct FoodDetailScreen: View {
     @EnvironmentObject var diary: Diary

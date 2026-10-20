@@ -11,7 +11,7 @@ struct ProfileScreen: View {
     }
     private var signedInProfile: some View {
         PageCanvas {
-            PageIntro(eyebrow: "Your space", title: "Made for you.", detail: "Your account, preferences and everyday goals.")
+            PageIntro(eyebrow: "Your space", title: "Your profile", detail: "Manage your details and daily goals.")
             Surface {
                 HStack(spacing: 16) {
                     Text(account.session?.initials ?? "").font(.system(.title2, design: .rounded).weight(.bold))
@@ -41,7 +41,7 @@ struct ProfileScreen: View {
                     RouteRow(title: "Account", subtitle: account.session?.email ?? "Sign in to unlock your journal", icon: "person.crop.circle.badge.checkmark")
                 }.buttonStyle(.plain)
             }
-            SectionHeading(title: "Your wellness settings", subtitle: "Open a section to review or update your details")
+            SectionHeading(title: "Personal settings")
             NavigationLink(destination: PersonalDetailsScreen()) {
                 Surface { RouteRow(title: "Personal details", subtitle: "Measurements, age and activity", icon: "person.crop.circle") }
             }.buttonStyle(.plain)
@@ -51,7 +51,7 @@ struct ProfileScreen: View {
             NavigationLink(destination: PreferencesScreen()) {
                 Surface { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Choose your food style" : diary.profile.preferences, icon: "fork.knife", color: NourishStyle.blue) }
             }.buttonStyle(.plain)
-            SectionHeading(title: "Connected to your day")
+            SectionHeading(title: "App & connections")
             Surface {
                 NavigationLink(destination: HealthScreen()) { RouteRow(title: "Apple Health", subtitle: "Activity, height and weight", icon: "heart.fill", color: .pink) }.buttonStyle(.plain)
                 Divider()

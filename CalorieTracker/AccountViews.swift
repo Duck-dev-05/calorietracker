@@ -5,8 +5,8 @@ private struct AccountHeader: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack { BrandLockup(); Spacer(); Pill(text: "Your journal") }.padding(.bottom, 8)
-            Text(title).font(.system(.largeTitle, design: .default).weight(.bold)).tracking(-1).fixedSize(horizontal: false, vertical: true)
+            BrandLockup().padding(.bottom, 4)
+            Text(title).font(.system(.title, design: .default).weight(.bold)).tracking(-1).fixedSize(horizontal: false, vertical: true)
             Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
         }.padding(.vertical, 10)
     }
@@ -52,7 +52,7 @@ struct AccountWelcomeScreen: View {
                 NavigationLink("Create an account", destination: RegisterScreen()).buttonStyle(SecondaryAction())
                 AccountAvailability()
             }
-            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR CONTINUE WITH").font(.caption2.weight(.semibold)).tracking(1).fixedSize(); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
+            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR").font(.caption2.weight(.semibold)).tracking(1); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
             GoogleAccountAction()
             Label("Your existing local diary stays on this device.", systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
             NavigationLink("Privacy & storage", destination: PrivacyScreen()).font(.footnote)
@@ -72,7 +72,7 @@ struct LoginScreen: View {
             AccountHeader(title: "Welcome back.", subtitle: "Your journal is a sign-in away.")
             if account.supportsPassword {
             Surface {
-                SectionHeading(title: "Log in with email", subtitle: "Use the local account you registered on this iPhone. All signed-in accounts access this device’s shared journal.")
+                SectionHeading(title: "Log in with email", subtitle: "Use the account registered on this iPhone. All accounts share this device’s journal.")
                 Text("EMAIL").font(.caption.bold()).foregroundStyle(.secondary)
                 AccountEmailField(text: $email)
                 if attempted && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
@@ -84,7 +84,7 @@ struct LoginScreen: View {
             }
             AccountAvailability()
             }
-            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR CONTINUE WITH").font(.caption2.weight(.semibold)).tracking(1).fixedSize(); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
+            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR").font(.caption2.weight(.semibold)).tracking(1); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
             GoogleAccountAction()
             HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)) }.font(.subheadline).frame(maxWidth: .infinity)
         }.navigationTitle("Log in").navigationBarTitleDisplayMode(.inline).onDisappear { password = "" }
@@ -112,7 +112,7 @@ struct RegisterScreen: View {
             AccountHeader(title: "Make space for you.", subtitle: "Create an account on this iPhone or continue with Google. Your journal stays on this device.")
             if account.supportsPassword {
             Surface {
-                SectionHeading(title: "Create a local account", subtitle: "Available only on this iPhone. Email ownership is not verified. Password recovery and account sync are unavailable. All accounts open the same local journal.")
+                SectionHeading(title: "Create a local account", subtitle: "This iPhone only. No password recovery or sync. All accounts share one journal. Email ownership is not verified.")
                 TextField("Your name", text: $name).accessibilityLabel("Your name").textContentType(.name).padding(16).background(NourishStyle.canvas, in: RoundedRectangle(cornerRadius: 14))
                 AccountEmailField(text: $email)
                 if !email.isEmpty && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
@@ -126,7 +126,7 @@ struct RegisterScreen: View {
             }
             AccountAvailability()
             }
-            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR CONTINUE WITH").font(.caption2.weight(.semibold)).tracking(1).fixedSize(); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
+            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR").font(.caption2.weight(.semibold)).tracking(1); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
             GoogleAccountAction()
             NavigationLink("Review privacy & storage", destination: PrivacyScreen()).font(.footnote)
         }.navigationTitle("Register").navigationBarTitleDisplayMode(.inline).onDisappear { clearPasswords() }

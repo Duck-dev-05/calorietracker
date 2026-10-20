@@ -6,7 +6,7 @@ struct GoogleAccountAction: View {
     @State private var error: String?
     var body: some View {
         Surface {
-            SectionHeading(title: "Continue with Google", subtitle: "Use your Google account. No separate Nourish password needed.")
+            SectionHeading(title: "Google")
             GoogleSignInButton {
                 error = nil
                 Task {
@@ -19,7 +19,7 @@ struct GoogleAccountAction: View {
             if let message = account.configurationMessage { Label(message, systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary) }
             if let error { Label(error, systemImage: "exclamationmark.circle").font(.footnote).foregroundStyle(.red) }
             if let message = account.restorationError { Text(message).font(.footnote).foregroundStyle(.secondary) }
-            Text("Google shares your basic profile and email for sign-in. Nourish does not send your journal or Apple Health records to Google.").font(.caption).foregroundStyle(.secondary)
+            DisclosureGroup("What Google shares") { Text("Google shares your name and email for sign-in. Your journal and Apple Health records are not sent to Google.").font(.caption).foregroundStyle(.secondary) }.font(.subheadline)
         }
     }
 }

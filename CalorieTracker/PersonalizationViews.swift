@@ -73,7 +73,7 @@ private struct ChoiceTile: View {
 }
 struct PersonalDetailsScreen: View {
     @EnvironmentObject var diary: Diary
-    @EnvironmentObject var health: HealthService
+    @EnvironmentObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var age = ""
@@ -85,54 +85,81 @@ struct PersonalDetailsScreen: View {
     @State private var weightAtLoad: Double?
     @State private var heightAtLoad: Double?
     @State private var heightTextAtLoad = ""
+    @State private var weightTextAtLoad = ""
     @State private var loaded = false
     @FocusState private var textFocused: Bool
     private let activities = ["Not specified", "Mostly seated", "Some daily movement", "Regular exercise", "Very active days"]
     private var ageValid: Bool { age.isEmpty || Int(age).map { (1...120).contains($0) } == true }
     private var valid: Bool { name.count <= 200 && ageValid && (height.isEmpty || NumberDraftField.value(height, range: 80...250) != nil) && (weight.isEmpty || NumberDraftField.value(weight, range: 20...400) != nil) }
-    private var displayName: String { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your profile" : name }
     var body: some View {
-        PersonalEditor(title: "Personal details", subtitle: "Edits apply only after a successful save.", actionTitle: "Save profile", valid: valid, action: save) {
-            EditorHeading(number: "01", title: "The basics", detail: "A name for your journal. Age is optional.")
-            Surface {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("YOUR NAME").font(.caption2.bold()).tracking(1.5).foregroundStyle(.secondary)
-                    TextField("What should we call you?", text: $name).textContentType(.givenName).focused($textFocused).font(.title3)
-                    if name.count > 200 { Text("Use no more than 200 characters.").font(.caption).foregroundStyle(.red) }
+        Form {
+            if let session = account.session, account.isAuthenticated {
+                Section("Account") {
+                    HStack(spacing: 12) {
+                        AccountAvatar(size: 44)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(session.displayName).font(.headline)
+                            Text(session.email).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }.padding(.vertical, 4)
                 }
-                Divider()
-                HStack { Text("Age"); Spacer(); TextField("Optional", text: $age).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 100).focused($textFocused); Text("years").font(.caption).foregroundStyle(.secondary) }
+            }
+            Section {
+                HStack {
+                    Text("Journal name")
+                    TextField("Optional", text: $name)
+                        .textContentType(.nickname).multilineTextAlignment(.trailing).focused($textFocused)
+                        .accessibilityLabel("Journal name")
+                }
+                if name.count > 200 { Text("Use no more than 200 characters.").font(.caption).foregroundStyle(.red) }
+                HStack {
+                    Text("Age (years)")
+                    TextField("Optional", text: $age).keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing).focused($textFocused).accessibilityLabel("Age in years")
+                }
                 if !ageValid { Text("Enter a whole number from 1 to 120, or leave this blank.").font(.caption).foregroundStyle(.red) }
+            } header: { Text("About you") } footer: {
+                Text("A journal name is optional and does not change your sign-in account.")
             }
-            EditorHeading(number: "02", title: "Body measurements", detail: "Your current measurements, in metric units.")
-            Surface {
-                NumberDraftField(title: "Height · cm", text: $height, range: 80...250, isOptional: true)
-                Divider()
-                NumberDraftField(title: "Weight · kg", text: $weight, range: 20...400, isOptional: true)
-                Button { weightBeforeLogging = diary.profile.weight; loggingWeight = true } label: { Label("Add a dated weight to Progress", systemImage: "plus.circle").font(.subheadline.weight(.semibold)) }.padding(.top, 4)
-                EditorNote(text: "Profile edits update your current measurement. Dated entries are tracked separately in Progress.")
+            Section {
+                NumberDraftField(title: "Height (cm)", text: $height, range: 80...250, isOptional: true, placeholder: "Optional")
+                NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400, isOptional: true, placeholder: "Optional")
+                Button {
+                    weightBeforeLogging = diary.profile.weight; loggingWeight = true
+                } label: { Label("Log a dated weight", systemImage: "plus.circle") }
+            } header: { Text("Body measurements") } footer: {
+                Text("These are your current measurements. Log a dated weight to track changes in Progress.")
             }
-            EditorHeading(number: "03", title: "Your everyday rhythm", detail: "Optional context about your usual day.")
-            Surface {
-                HStack { IconTile(icon: "figure.walk"); Picker("Activity", selection: $activity) { ForEach(activities, id: \.self) { Text($0) } }.pickerStyle(.menu) }
-                Text(activityDetail).font(.subheadline).foregroundStyle(.secondary)
+            Section {
+                Picker("Usual activity", selection: $activity) {
+                    ForEach(activities, id: \.self) { Text($0) }
+                }.pickerStyle(.menu)
+            } header: { Text("Activity") } footer: { Text(activityDetail) }
+            Section {
+                NavigationLink("Review height", destination: HealthMetricScreen(metric: .height))
+                NavigationLink("Review weight", destination: HealthMetricScreen(metric: .weight))
+                NavigationLink("Health connection", destination: HealthScreen())
+            } header: { Text("Apple Health") } footer: {
+                Text("Review measurements before importing or sharing them. Your calorie target is managed in Goals & target.")
             }
-            healthPanel
-            EditorNote(text: "Age and activity add context to your profile. Your daily calorie target is still set manually.")
-            EditorError()
+            if let error = diary.storageError {
+                Section { Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.red) }
+            }
         }
-        .sheet(isPresented: $loggingWeight, onDismiss: { if diary.profile.weight != weightBeforeLogging { weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? ""; weightAtLoad = diary.profile.weight } }) { WeightLogScreen().adaptiveEntrySheet() }
-        .toolbar { ToolbarItemGroup(placement: .keyboard) { if textFocused { Spacer(); Button("Done") { textFocused = false } } } }
+        .navigationTitle("Personal details").navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) { Button("Save", action: save).disabled(!valid) }
+            ToolbarItemGroup(placement: .keyboard) {
+                if textFocused { Spacer(); Button("Done") { textFocused = false } }
+            }
+        }
+        .sheet(isPresented: $loggingWeight, onDismiss: {
+            if diary.profile.weight != weightBeforeLogging {
+                weight = diary.profile.weight.map(NutritionDraft.text) ?? ""
+                weightAtLoad = diary.profile.weight; weightTextAtLoad = weight
+            }
+        }) { WeightLogScreen().adaptiveEntrySheet() }
         .onAppear(perform: load)
-    }
-    private var healthPanel: some View {
-        Surface {
-            HStack { IconTile(icon: "heart.fill", color: .pink); VStack(alignment: .leading, spacing: 4) { Text("Apple Health").font(.headline); Text("Import from Apple Health").font(.caption).foregroundStyle(.secondary) } }
-            NavigationLink(destination: HealthMetricScreen(metric: .height)) { Text("Review Health height & measurement date") }.font(.subheadline)
-            NavigationLink(destination: HealthMetricScreen(metric: .weight)) { Text("Review Health weight & measurement date") }.font(.subheadline)
-            NavigationLink(destination: HealthScreen()) { Label("Open Health connection", systemImage: "arrow.up.right").font(.subheadline.weight(.semibold)) }
-            Text("Health import updates your saved profile separately. Reopen this page afterwards to see imported values.").font(.caption).foregroundStyle(.secondary)
-        }
     }
     private var activityDetail: String {
         switch activity {
@@ -149,13 +176,13 @@ struct PersonalDetailsScreen: View {
                 height = diary.profile.height.map(NutritionDraft.text) ?? ""
                 heightAtLoad = diary.profile.height; heightTextAtLoad = height
             }
-            if NumberDraftField.value(weight, range: 20...400) == weightAtLoad && diary.profile.weight != weightAtLoad {
-                weight = diary.profile.weight?.formatted(.number.grouping(.never)) ?? ""; weightAtLoad = diary.profile.weight
+            if weight == weightTextAtLoad && diary.profile.weight != weightAtLoad {
+                weight = diary.profile.weight.map(NutritionDraft.text) ?? ""; weightAtLoad = diary.profile.weight; weightTextAtLoad = weight
             }
             return
         }
         weightAtLoad = diary.profile.weight
-        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height?.formatted(.number.grouping(.never)) ?? ""; weight = p.weight?.formatted(.number.grouping(.never)) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; heightAtLoad = p.height; heightTextAtLoad = height; loaded = true
+        let p = diary.profile; name = p.name ?? ""; age = p.age.map(String.init) ?? ""; height = p.height.map(NutritionDraft.text) ?? ""; weight = p.weight.map(NutritionDraft.text) ?? ""; activity = p.activityLevel.flatMap { activities.contains($0) ? $0 : nil } ?? "Not specified"; heightAtLoad = p.height; heightTextAtLoad = height; weightTextAtLoad = weight; loaded = true
     }
     private func save() {
         guard valid else { return }
@@ -166,7 +193,13 @@ struct PersonalDetailsScreen: View {
                 guard saved.profile.height == heightAtLoad else { throw DiaryFailure.invalid("Height changed while this page was open. Reopen Personal details before editing height.") }
                 saved.profile.height = h
             }
-            if saved.profile.weight != w { saved.profile.weight = w; saved.profile.weightMeasuredAt = w == nil ? nil : diary.now; saved.profile.weightSource = w == nil ? nil : "Profile edit"; saved.profile.weightEntryID = nil }
+            if weight != weightTextAtLoad {
+                guard saved.profile.weight == weightAtLoad else { throw DiaryFailure.invalid("Weight changed while this page was open. Reopen Personal details before editing weight.") }
+                if saved.profile.weight != w {
+                    saved.profile.weight = w; saved.profile.weightMeasuredAt = w == nil ? nil : diary.now
+                    saved.profile.weightSource = w == nil ? nil : "Profile edit"; saved.profile.weightEntryID = nil
+                }
+            }
             saved.profile.activityLevel = activity == "Not specified" ? nil : activity
         }) { dismiss() }
     }

@@ -212,3 +212,8 @@ Google sign-in, restoration and refresh now map the SDK profile photo URL into t
 Profile → Goals & calorie target now saves an effective start date and optional macro percentages, with grams preview. Review a maintenance estimate using actual measurements and explicitly selected equation coefficient/activity multiplier, or keep manual entry. Save Goals commits the draft; History retains prior revisions. Profile → Target history and Daily nutrition expose targets and per-nutrient recorded-data coverage. Dashboard includes a macro summary and daily nutrition link. Historical days use recorded effective targets; legacy undated targets are not backfilled into the past. Activity remains separate from food budgets.
 
 Journal schema is now 4. Older records migrate with original-file archiving on first save, and exports include target history/estimate inputs. Older schema-3 app builds cannot read new schema-4 files. Export a backup before version changes. Core regression and device-form/date/locale checks are required; compilation alone is not phone verification. Calculator method: https://pubmed.ncbi.nlm.nih.gov/2305711/ .
+
+
+### Personal details update — 0.18.1 (30)
+
+Replaced numbered cards and the large bottom save panel with a compact native form and navigation-bar Save. Shows the signed-in account name, email and Google avatar separately from the optional journal name. Measurement fields use clear unit labels; untouched measurements retain their exact stored values, and conflicting weight changes are rejected before saving. IPA compilation is checked in CI; on-device layout and Health import flows still require verification.

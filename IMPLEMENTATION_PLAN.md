@@ -437,3 +437,8 @@ The simplified Mifflin–St Jeor equation estimates resting energy; maintenance 
 Daily Nutrition sums diary entries only, reports known amounts and coverage separately for protein/carbs/fat, and shows remaining grams only with complete recorded coverage. Empty days are not labelled fasting or zero actual intake. Plans and dietary Health records are excluded. Regression tests cover estimates, invalid inputs/method mismatch, coverage/known zero, target revisions/disable/future activation, exact migration archive, round trips, stale editors and failed writes.
 
 Remaining Phase 1 work: structured external source/ingredient metadata, recipe yield, explicit serving-weight bridges, measured async persistence improvements, more real-device fixtures and any separately tested zero-energy-food support. Dynamic Health calorie adjustment remains disabled until its independent activity-accounting policy is implemented. Schema 4 files are intentionally rejected by older schema-3 builds; keep exported backups before changing versions. Physical iPhone validation of the new forms and date/locale behavior remains pending.
+
+
+### Personal details update — 0.18.1 (30)
+
+Replaced numbered cards and the large bottom save panel with a compact native form and navigation-bar Save. Shows the signed-in account name, email and Google avatar separately from the optional journal name. Measurement fields use clear unit labels; untouched measurements retain their exact stored values, and conflicting weight changes are rejected before saving. IPA compilation is checked in CI; on-device layout and Health import flows still require verification.

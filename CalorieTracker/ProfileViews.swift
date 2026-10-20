@@ -100,8 +100,6 @@ struct SettingsScreen: View {
             Section("Display") {
                 Picker("Appearance", selection: $appearance) { ForEach(["System", "Light", "Dark"], id: \.self) { Text($0) } }
                 ValueRow(title: "Measurements", value: "cm · kg · mL")
-                ValueRow(title: "Interface", value: InterfaceGeneration.name)
-                Text(InterfaceGeneration.explanation).font(.footnote).foregroundStyle(.secondary)
             }
             Section("Account") { NavigationLink("Login & registration", destination: AccountWelcomeScreen()); NavigationLink("Account & security", destination: AccountSecurityScreen()) }
             Section("Your information") {
@@ -137,12 +135,12 @@ struct PrivacyScreen: View {
 struct HelpScreen: View {
     var body: some View {
         List {
-            Section("How do I start?") { Text("Set your target in You → Goals & daily target. Add what you eat in Diary, including calories for your actual serving. Save your own meals in Meals for reuse.") }
+            Section("How do I start?") { Text("Set your target in Profile → Goals & calorie target. Add what you eat in Diary, including calories for your actual serving. Save your own meals in Meals for reuse.") }
             Section("Does planning count as eating?") { Text("No. Add meals to your planner, then mark them as eaten to move them into the diary. Future meals cannot be marked as eaten.") }
             Section("Where do calories come from?") { Text("Food diary calories are entered by you. Saved meals use the calories and ingredients you enter. No meals or measurements are preloaded. There is no barcode scanner, photo analysis or live nutrition database yet.") }
-            Section("Why is Health data unavailable?") { Text("Check that Apple Health contains records and Nourish has read permission. Open You → Apple Health and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
+            Section("Why is Health data unavailable?") { Text("Check that Apple Health contains records and Nourish has read permission. Open Health → Overview and refresh. HealthKit and TrollStore installation need testing on your specific phone.") }
             Section("How is my target calculated?") { Text("It is currently set manually. Recording your measurements and goal does not automatically calculate it. The app does not prescribe a diet.") }
-            Section("How do I keep a backup?") { Text("Open You → Settings → Backup & restore. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }
+            Section("How do I keep a backup?") { Text("Open Profile → Backup & restore. Export to Files. To restore, choose a backup, check its preview and confirm replacement. This version replaces rather than merges journals.") }
             Section("About Nourish") { Text("A personal food and activity journal for iPhone, with iOS 15 support and a TrollStore IPA build workflow.") }
         }.navigationTitle("Help & about")
     }

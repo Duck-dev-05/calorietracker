@@ -1,6 +1,6 @@
 # Nourish Calorie Tracker — Implementation Plan
 
-Reviewed: 19 October 2026. Application baseline: **0.12.0, build 19**, source commit `4afb8e2`.
+Reviewed: 20 October 2026. Implementation baseline: **0.13.0, build 20** (Phase 1 nutrition work below); latest prior verified application build: `4afb8e2`, v0.12.0.
 
 This is the consolidated current plan. It replaces the older appended release notes and superseded role/login directions. Status reflects repository code and the latest verified build, not assumed device testing.
 
@@ -83,11 +83,11 @@ Current behavior to preserve:
 
 ### Still required
 
-- [ ] Add a reusable reference-serving editor: per serving/per 100 g/per 100 mL, custom reference amount and explicit unit.
-- [ ] Support arbitrary supported quantities, not only quarter-serving increments; only allow serving-to-mass conversion with a real entered/source gram weight.
-- [ ] Preserve full precision for untouched nutrient fields when another field is edited. Current drafts format totals into text; add a regression before changing this behavior.
-- [ ] Review warnings/confirmation for clearing existing macros during calorie edits; keep draft cancellation non-destructive.
-- [ ] Decide how genuine zero-calorie foods and very small portions should be represented. Current diary entry validation requires 1–10,000 rounded kcal; do not silently replace zero with one.
+- [x] Shared Nutrition & Portion editor accepts serving/per-100 g/per-100 mL or custom reference amount/unit, label/source and optional macros, with a computed preview and explicit Apply. Used by food, saved meals and plans.
+- [x] Support arbitrary positive quantities within calculation limits; meal details accepts decimal servings. Only mass-to-mass and volume-to-volume conversion is supported. Explicit serving weights/density bridges remain deferred; none are guessed.
+- [x] `NutritionDraft` preserves exact stored values for untouched fields even when display formatting rounds them; regression covers changing one macro, reference precision and provenance.
+- [x] Removed automatic macro clearing. Nutrition editor keeps fields independent and asks the user to review the common reference; Cancel discards editor changes and Apply updates only the parent draft until Save.
+- [x] Explicit current policy: reject entries/portions rounding below 1 kcal with an explanation; never coerce them to one. Zero-energy food support remains deferred pending a compatible validation/schema decision.
 - [ ] Extend the source string into attributed source metadata when integrating external foods: external ID, basis, retrieval/version information and ingredient provenance.
 - [ ] Add structured ingredients/dietary metadata and recipe yield aggregation when those features are built. Substring exclusions are not verified allergy protection.
 - [ ] Add dated target records, manual/estimated mode, macro allocation and calculation method/version.
@@ -95,7 +95,7 @@ Current behavior to preserve:
 - [ ] Define activity accounting before enabling dynamic targets. Do not add workouts again when represented in active energy; keep stale/mismatched-day activity out of adjustments.
 - [ ] Keep historical targets unknown when no historical record exists; do not backfill current values as facts.
 - [ ] Move expensive persistence/import work to a serialized async boundary without weakening atomic writes or failure recovery.
-- [ ] Expand migration fixtures across supported legacy/schema 1/2/3 shapes and incompatible future schemas; preserve all IDs, dates and nil fields.
+- [x] Added legacy/nil/schema 1/2/3 round-trip coverage for IDs, dates, owner, unknown nutrition and absent collections; existing tests reject future schemas. More production-file fixtures remain useful.
 
 Completion: existing records survive migration/restore; portions and edit precision are correct; reviewed targets are reproducible; no unverified automatic activity adjustment ships.
 
@@ -139,8 +139,8 @@ Completion: local recommendations work without AI/network, with stable tested ra
 | Account & security | Partial | Add local password change/account deletion; distinguish Google versus local session help and shared-journal behavior |
 | Personal details / Goals / Preferences | Implemented manual editors | Formula inputs, target history and estimates; keep existing pages |
 | Choose food | Not started | Search actual saved foods/recent items and preserve selected day/category |
-| Portion editor | Partial: meal details stepper exists | Arbitrary quantity/unit, nutrition preview and explicit save for diary/plans |
-| Saved-meal nutrition editor | Partial | Reference basis/unit, provenance and structured ingredients |
+| Portion editor | Implemented foundation | Shared reference/portion editor and arbitrary servings; device usability checks and any explicit serving-weight bridge remain |
+| Saved-meal nutrition editor | Partial | Reference basis/unit and source editor implemented; structured external provenance/ingredients remain |
 | Macro target editor | Not started | Validate allocation, preview grams and apply dated targets |
 | Calorie estimate review | Not started | Required inputs, method/assumptions, manual alternative and explicit Apply |
 | Dashboard macro totals | Not started | Consumed/target/remaining values with incomplete-nutrient coverage clearly shown |
@@ -342,3 +342,10 @@ Create these pages only after their corresponding models/services and tests are 
 - [ ] Correct outdated setup/privacy/account copy throughout supporting documentation and provider-specific help.
 
 Recommended next implementation slice: account test boundaries + focused lifecycle/UI corrections, then nutrition reference/portion editing. AI/LLM remains a later phase after deterministic recommendations and trusted nutrition data are usable.
+
+
+## 13. Phase 1 critical nutrition implementation — v0.13.0
+
+Completed: shared Nutrition & Portion page with isolated draft/Cancel/Apply, immutable reference snapshots, arbitrary quantities and decimal meal servings, full precision preservation for untouched fields, no automatic macro deletion, explicit below-1-kcal rejection, legacy metadata-only editing, food/meal/plan integration and expanded regression coverage. No diary schema, bundle ID, account identity or stored-record rewrite is introduced. Save still uses validated atomic transactions; failed saves preserve memory/disk.
+
+Phase 1 is still partial overall: dated calorie/macro targets, researched calculator/review UI, structured source/ingredient metadata, optional serving-weight conversion and serialized asynchronous persistence remain. Dynamic activity budgets stay disabled until dated targets and duplicate-energy policy are implemented. Do not treat this critical nutrition slice as completed BMR/TDEE or recommendation functionality. Physical-device editor/keyboard/Cancel/save-failure checks remain required.

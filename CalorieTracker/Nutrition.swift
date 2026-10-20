@@ -3,6 +3,7 @@ import Foundation
 /// Quantities convert only within the same dimension. No density/serving weight is inferred.
 enum NutritionUnit: String, Codable, CaseIterable {
     case serving, gram, kilogram, milliliter, liter
+    var title: String { switch self { case .serving: return "serving"; case .gram: return "g"; case .kilogram: return "kg"; case .milliliter: return "mL"; case .liter: return "L" } }
     private var dimension: Int { switch self { case .serving: return 0; case .gram, .kilogram: return 1; case .milliliter, .liter: return 2 } }
     private var scale: Double { self == .kilogram || self == .liter ? 1000 : 1 }
     func converted(_ quantity: Double, to unit: NutritionUnit) throws -> Double {

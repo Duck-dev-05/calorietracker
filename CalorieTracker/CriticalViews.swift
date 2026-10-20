@@ -120,19 +120,19 @@ struct PlannedMealEditorScreen: View {
     var existing: PlannedMeal? = nil
     var initialDate = Date()
     @State private var name = ""
-    @State private var calories = ""
+    @State private var nutrition: NutritionSnapshot?
     @State private var category = "Lunch"
     @State private var date = Date()
     @State private var copyDate = Date()
     @State private var loaded = false
     @State private var deleting = false
     @FocusState private var energyFocused: Bool
-    private var energy: Int? { guard let n = Int(calories), (1...10000).contains(n) else { return nil }; return n }
+    private var energy: Int? { nutrition.flatMap { try? $0.roundedCalories() } ?? existing?.calories }
     private var valid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 500 && energy != nil }
     var body: some View {
         Form {
-            Section("Planned meal") { TextField("Meal name", text: $name); TextField("Planned calories (kcal)", text: $calories).keyboardType(.numberPad).focused($energyFocused); Picker("Meal", selection: $category) { ForEach(mealCategories, id: \.self) { Text($0) } }; DatePicker("Planned day", selection: $date, displayedComponents: .date) }
-            Section { NutritionSnapshotRows(snapshot: existing?.nutrition); Text("Changing planned calories clears the old portion/macros rather than retaining incorrect nutrition. These are planned values you enter. Changing the day moves the same plan; it does not add food to your diary.").font(.footnote) }
+            Section("Planned meal") { TextField("Meal name", text: $name); Picker("Meal", selection: $category) { ForEach(mealCategories, id: \.self) { Text($0) } }; DatePicker("Planned day", selection: $date, displayedComponents: .date) }
+            NutritionSelectionSection(snapshot: $nutrition, legacyCalories: existing?.calories)
             if let existing {
                 Section("Copy to another day") { DatePicker("Copy day", selection: $copyDate, displayedComponents: .date); Button("Copy saved plan") { if diary.copyPlan(existing.id, to: copyDate) { dismiss() } }; Text("Copies the last saved values. Save your draft first to include changes.").font(.caption) }
                 if Calendar.current.startOfDay(for: existing.date) <= Calendar.current.startOfDay(for: diary.now) { Button("Mark saved plan as eaten") { if diary.consumePlan(existing.id) { dismiss() } } }
@@ -140,8 +140,8 @@ struct PlannedMealEditorScreen: View {
             }
             if let error = diary.storageError { Text(error).foregroundStyle(.red) }
         }.navigationTitle(existing == nil ? "Create plan" : "Edit planned meal").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItemGroup(placement: .keyboard) { if energyFocused { Spacer(); Button("Done") { energyFocused = false } } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { guard valid, let energy else { return }; var plan = PlannedMeal(date: date, name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: energy, category: category); if let existing { plan.id = existing.id; if energy == existing.calories { plan.nutrition = existing.nutrition } }; if diary.upsertPlan(plan) { dismiss() } }.disabled(!valid) } }
-        .onAppear { if !loaded { name = existing?.name ?? ""; calories = existing.map { String($0.calories) } ?? ""; category = existing?.category ?? "Lunch"; date = existing?.date ?? initialDate; copyDate = date; loaded = true } }
+        .toolbar { ToolbarItemGroup(placement: .keyboard) { if energyFocused { Spacer(); Button("Done") { energyFocused = false } } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { guard valid, let energy else { return }; var plan = PlannedMeal(date: date, name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: energy, category: category, nutrition: nutrition); if let existing { plan.id = existing.id }; if diary.upsertPlan(plan) { dismiss() } }.disabled(!valid) } }
+        .onAppear { if !loaded { name = existing?.name ?? ""; nutrition = existing?.nutrition; category = existing?.category ?? "Lunch"; date = existing?.date ?? initialDate; copyDate = date; loaded = true } }
         .alert("Delete this plan?", isPresented: $deleting) { Button("Delete", role: .destructive) { if let existing, diary.deletePlan(existing.id) { dismiss() } }; Button("Cancel", role: .cancel) { } }
     }
 }

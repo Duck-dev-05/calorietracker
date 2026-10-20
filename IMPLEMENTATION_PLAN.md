@@ -1,6 +1,6 @@
 # Nourish Calorie Tracker — Implementation Plan
 
-Reviewed: 20 October 2026. Implementation baseline: **0.18.0, build 29** (new target/calculation flows); prior verified release: `74e0231`, v0.17.3. New build verification is recorded with the release outcome.
+Reviewed: 20 October 2026. Current code: **0.18.5, build 34**. Historical baseline: `74e0231`, v0.17.3. New build verification is recorded with the release outcome.
 
 This is the consolidated current plan. It replaces the older appended release notes and superseded role/login directions. Status reflects repository code and the latest verified build, not assumed device testing.
 
@@ -14,7 +14,7 @@ This is the consolidated current plan. It replaces the older appended release no
 
 Current behavior to preserve:
 
-1. Launch opens the public Home/Today page and main tabs, not Login.
+1. Launch opens the public Dashboard page and main tabs, not Login.
 2. Signed-out Diary, Meals, Health, Progress and Profile open Login instead of personal content. Health, writes, export and recovery operations require a valid session.
 3. Valid sign-in unlocks existing onboarding/personal pages. Logout and expiry hide private data and reset personal navigation without deleting the diary.
 4. There are **no user roles**. Do not recreate Admin/Member/Viewer roles, role pickers or role-management pages.
@@ -34,14 +34,14 @@ Current behavior to preserve:
 | Authentication screens | Implemented; device verification pending | Local name/email/password registration and login, Google sign-in, validation, password visibility, password help and account security | Actual provider/storage tests, device QA, password change/recovery policy and account deletion |
 | Session access | Partial | Google SDK Keychain restore/refresh/sign-out; local 12-hour memory session; expiry guards, hidden snapshots and navigation reset | Device lifecycle tests, explicit local remember-me decision, provider revocation/unlink behavior |
 | Data ownership | Partial | Legacy owner metadata is preserved; edits/imports cannot silently change that metadata | Shared diary is disclosed in Login/Register; decide whether to retain it or add isolated stores and reviewed legacy adoption before claiming private accounts |
-| Profile | Implemented | Authenticated name/email/initials/provider, separate personal details/goals/preferences pages, optional measurements and manual calorie target | Account edit/change-password/deletion, formula-specific inputs, estimates and target history |
-| Food diary | Partial | Dated entries, search, category-specific logging, detail/edit/delete, inline calories, shared reference/portion editor and precise snapshots | Saved-food picker and daily macro aggregation |
-| Nutrition arithmetic | Implemented foundation | Reference/portion UI, compatible conversions, unknown-versus-zero macros, untouched-field precision regression, boundary rounding and explicit rejection below 1 kcal | Dated targets, calculator, macro allocation and optional explicit serving-weight conversion |
+| Profile | Implemented | Authenticated name/email/initials/provider, separate personal details/goals/preferences pages, optional measurements and manual calorie target | Account lifecycle and device verification of implemented estimates/history |
+| Food diary | Partial | Dated entries, search, category-specific logging, detail/edit/delete, inline calories, shared reference/portion editor and precise snapshots | Saved-food picker; device validation of implemented daily macro aggregation |
+| Nutrition arithmetic | Implemented foundation | Reference/portion UI, compatible conversions, unknown-versus-zero macros, untouched-field precision regression, boundary rounding and explicit rejection below 1 kcal | Verify implemented targets/calculator/macros; optional explicit serving-weight conversion |
 | Saved meals | Partial | CRUD, search, vegetarian/exclusion filters, shared reference editor and arbitrary decimal servings for logging/planning | Structured ingredients/source metadata, favorites and recent selection |
 | Planning | Partial | CRUD/copy/consume, shared nutrition/portion editor and snapshot-preserving transfer | Optional week view and later budget-reservation policy |
 | Water and weight | Implemented | Custom dated records, edit/delete, weight source/time and current-weight reconciliation | Longer trends, display units and broader device verification |
 | HealthKit | Partial | Four-metric overview, 26-type browser, workout/ring/history reads and reviewed height/weight sharing/import | Device checks, broader history pagination, optional background updates and a defined activity budget policy |
-| Storage | Implemented safeguards; partial tooling | Schema 3, legacy decoding, atomic validated writes, migration archives, stale-file checks, backup preview and recovery | Async serialized operations, archive browser/retention and expanded schema fixtures |
+| Storage | Implemented safeguards; partial tooling | Schema 4, legacy decoding, atomic validated writes, migration archives, stale-file checks, backup preview and recovery | Async serialized operations, archive browser/retention and expanded schema fixtures |
 | UI and brand | Implemented shared refresh | Teal/mint palette, dark variants, shared cards/buttons, Today quick actions, compact meal cards, seven-day Progress and refreshed auth/Profile layouts; logo/icon assets | Small-screen/accessibility/iOS-version visual QA and remaining feature pages |
 | Build | Implemented | CI domain tests, iOS 15 compile, IPA packaging and checks for AppIcon metadata/Assets.car | Recorded install/update and icon checks on supported devices |
 | Calculation and macro targets | Implemented foundation | Reviewed Mifflin–St Jeor resting-energy/maintenance estimate, manual dated targets, macro allocation, target history and daily coverage summary | Physical-device validation and any independently tested dynamic activity policy |
@@ -68,12 +68,12 @@ Current behavior to preserve:
 
 ## 4. Phase 1 — Nutrition, storage and calculation foundation
 
-**Status: Partial as of v0.17.3. Core logging/portion safety is implemented. Calculation and target-history work is not implemented.**
+**Status: Foundation implemented. Calculations, dated targets, macro allocation and history exist. Device acceptance and the remaining extensions below are open.**
 
 ### Completed foundation
 
 - [x] Real profile, food, saved-meal, planned-meal, water and weight models; no production sample data.
-- [x] Schema 3 JSON persistence, validated atomic commits, stale-file checks and exact pre-migration/replacement archives. Core Data is not currently used and is not required solely for iOS 15 support.
+- [x] Schema 4 JSON persistence, validated atomic commits, stale-file checks and exact pre-migration/replacement archives. Core Data is not currently used and is not required solely for iOS 15 support.
 - [x] Optional macros distinguish unknown from known zero; calories are not used to invent macro amounts.
 - [x] Immutable nutrition snapshots retain reference quantity/unit, nutrients, chosen portion, source text and optional saved-meal ID.
 - [x] Reusable Nutrition & Portion editor for foods, meals and plans: serving/per-100 g/per-100 mL or custom basis, preview, isolated Cancel/Apply and explicit parent Save.
@@ -136,7 +136,7 @@ Validate the new target and nutrition workflows on the actual iPhone, then exten
 ### Still required
 
 - [ ] Verify Health permissions, empty/error states, multiple sources and measurement imports on the actual phone.
-- [ ] Add workouts only when the history/product flow needs them, with minimum authorization and no duplicate energy accounting.
+- [x] Read-only workout history and rings exist in the 26-type browser. Device checks, pagination and any future energy accounting remain open.
 - [ ] Document historical grouping after travel/timezone changes and test that policy across food, plans, water and Health.
 - [ ] Add observer/background updates only after foreground correctness and device behavior are verified.
 - [ ] Build `SuggestionContext` from actual saved foods, the selected day's effective target, recorded nutrients and eligible activity.
@@ -158,17 +158,17 @@ Completion: local recommendations work without AI/network, with stable tested ra
 | Public Home and protected tabs | Implemented | Check launch, tab changes, sign-out and expiry on device |
 | Login / Register / Password help | Implemented; device verification pending | Validate local/Google flows on device; password help accurately states local recovery is unavailable |
 | Account & security | Partial | Add local password change/account deletion; distinguish Google versus local session help and shared-journal behavior |
-| Personal details / Goals / Preferences | Implemented manual editors | Formula inputs, target history and estimates; keep existing pages |
+| Personal details / Goals / Preferences | Implemented manual editors | Verify implemented formula inputs, target history and estimates; keep existing pages |
 | Choose food | Not started | Search actual saved foods/recent items and preserve selected day/category |
 | Portion editor | Implemented foundation | Shared reference/portion editor and arbitrary servings; device usability checks and any explicit serving-weight bridge remain |
 | Saved-meal nutrition editor | Partial | Reference basis/unit and source editor implemented; structured external provenance/ingredients remain |
-| Macro target editor | Not started | Validate allocation, preview grams and apply dated targets |
-| Calorie estimate review | Not started | Required inputs, method/assumptions, manual alternative and explicit Apply |
-| Dashboard macro totals | Not started | Consumed/target/remaining values with incomplete-nutrient coverage clearly shown |
+| Macro target editor | Implemented; verification pending | Validate allocation, preview grams and apply dated targets |
+| Calorie estimate review | Implemented; verification pending | Required inputs, method/assumptions, manual alternative and explicit Apply |
+| Dashboard macro totals | Implemented; verification pending | Consumed/target/remaining values with incomplete-nutrient coverage clearly shown |
 | What should I eat? | Not started | Local ranked candidates, filters, selected meal/day and useful empty states |
 | Suggestion review | Not started | Real source, portion, nutrients, reason and editable one-time Log/Plan |
-| Planner | Partial | Existing CRUD/copy/consume is done; add full nutrition/portion editing and later optional week view |
-| Daily summary and target history | Not started | Use the target effective on that day; explain sparse logging |
+| Planner | Partial | CRUD/copy/consume and nutrition/portion editing exist; verify on device; optional week view later |
+| Daily summary and target history | Implemented; verification pending | Use the target effective on that day; explain sparse logging |
 | Recovery archive browser | Not started | Real archive list, dates/sizes, export, validated restore and deliberate removal |
 | Health / weight / water details | Implemented | Device QA and longer-range insights where useful |
 | AI settings / consent | Not started | Build with a selected secured service and explicit sharing scope |
@@ -251,6 +251,8 @@ Required work:
 
 ## 8. Critical-to-Low remaining priorities
 
+**20 October correction:** H3/H4, basic H1/H7 and daily summary/target-history portions of M1 are implemented. Treat them as verification or extension work. Workout history also exists; M4 is pagination/background work only. Section 9 is the current execution order.
+
 Implemented safeguards stay mandatory. Priority is based on impact, not phase numbering. Conditional release gates apply before enabling the affected feature, not as a reason to rebuild completed code.
 
 | Priority | ID | Work still needed | Dependency / completion condition |
@@ -288,19 +290,21 @@ Implemented safeguards stay mandatory. Priority is based on impact, not phase nu
 
 ## 9. Updated build order
 
-1. **Verify existing accounts and protect data:** actual local-provider tests, TrollStore/device login and update checks, journal ownership decision and accurate account documentation. Authentication is already connected; preserve public Home and signed-out Profile behavior.
-2. **Complete account lifecycle:** current-password-protected password change and local-account deletion with clear shared-diary effects. Choose recovery/isolation policy before implementing those extensions.
-3. **Close nutrition gaps:** reference-serving editor, arbitrary portion handling, untouched-field precision tests, zero-energy policy and expanded migration fixtures.
-4. **Complete logging:** Choose food -> Portion review -> dated/category-aware Save; reuse actual saved meals and preserve snapshots.
-5. **Implement targets:** documented calculator/activity policy -> dated targets -> macro allocation -> review/apply UI.
-6. **Show honest daily values:** macro aggregation with coverage, dashboard and historical comparisons; avoid treating current targets as historical facts.
-7. **Implement local suggestions:** deterministic eligibility/ranking -> list/detail -> reviewed Log/Plan, including planner nutrition editing.
-8. **Improve history/recovery:** summaries, archive browser, measured persistence performance and required workout support.
-9. **Connect food data:** USDA with provenance, serving/unit mapping and offline behavior.
-10. **Add optional AI:** consent/settings, secured adapter and evaluated saved-meal pilot; expand only after passing quality/privacy checks.
+This ordering supersedes older feature-creation priorities elsewhere in this document. Implemented estimate, target, macro, portion, planner and summary pages need validation rather than recreation.
+
+1. **Verify Health round trip on the actual iPhone (critical):** enter reviewed height and weight, allow write access, save each to Health, inspect dated Nourish-source records, refresh and review import. Confirm existing records remain and retrying a reviewed save does not create duplicates. Medical ID is not a supported import source.
+2. **Simplify both-measurement entry (high, not implemented):** extend Personal Details with optional combined height/weight review and actual measurement dates. Distinguish local Save from Health sharing. Report success/failure separately for each measurement and retry only failed writes. Local storage and HealthKit cannot be treated as one atomic commit.
+3. **Protect the existing journal (critical verification):** export backup, update a populated installation, verify diary/meals/weights/targets, test restore and failed saves. Verify schema-3 migration to schema 4 and preserve original archives.
+4. **Verify accounts and finish lifecycle:** local registration/relogin/lockout, Google restore/sign-out, direct credential repository tests, current-password-protected password change and reviewed local-account deletion. Shared diary remains disclosed; no roles.
+5. **Verify completed nutrition flows:** estimates, dated targets, macro allocation, portion scaling, incomplete macro coverage, target history and daily summaries. Keep Health activity separate from targets until accounting is defined and tested.
+6. **Complete food selection:** Choose food/recent foods → existing portion review → dated/category-aware Save, preserving immutable snapshots.
+7. **Implement local suggestions:** deterministic ranking of eligible real saved meals → explanation/review → one-time Log/Plan. Handle missing targets, unknown macros and no eligible candidates.
+8. **Improve source and recovery tooling:** structured provenance, ingredient quantities/yield, recovery archive browser, measured persistence responsiveness and longer trends.
+9. **Connect USDA:** source IDs, reliable nutrient/serving mapping, caching and offline behavior.
+10. **Add optional AI:** after local suggestions work, add consent/settings, secured service, source-grounded suggestions, validated responses and reviewed writes.
 11. **Add conveniences:** favorites, display units, reminders, week view and chart polish.
 
-Run relevant regression/compile checks and device validation throughout, not only at the end. Do not restart the completed logo, basic login UI, dated weight/water pages, plan CRUD or snapshot foundation as if they were unimplemented.
+Preserve iOS 15 support, existing Keychain configuration, public Dashboard launch and real user data. Run appropriate regression/compile checks and device acceptance throughout.
 
 ## 10. Source evidence and boundaries
 
@@ -331,6 +335,8 @@ Research and document the chosen calorie-estimation method before implementing t
 
 
 ## 12. Remaining pages in implementation order
+
+**20 October correction:** reference nutrition editor, portion editor, estimate review, dated macro targets, Dashboard macro summary, planner nutrition editing, Daily Nutrition and Target History already exist. Their rows below specify acceptance/extension work rather than missing pages. Follow Section 9 for current priorities.
 
 Create these pages only after their corresponding models/services and tests are ready. Existing Personal details, Goals, Preferences, login, diary details and history pages should be extended rather than duplicated.
 
@@ -452,3 +458,13 @@ Personal Details now shows readable Health height and weight beside saved profil
 ### Missing Health readings — 0.18.5 (34)
 
 Metric pages now refresh on opening and returning to the foreground, show an actionable empty state with Health record/permission steps, and offer access review and manual profile entry. Explanatory text wraps fully. Empty results are never labeled as confirmed permission denial or populated with invented values. Real-device missing height investigation still requires confirmation that a Height sample exists and read access is enabled.
+
+
+### Latest audit — 20 October 2026
+
+Verified code baseline: 0.18.5 (34). [Configuration tests, core tests and IPA packaging passed](https://github.com/Duck-dev-05/calorietracker/actions/runs/39367708576).
+Google avatar/name display was observed in a user screenshot; this does not establish all authentication lifecycle checks.
+Personal Details has account identity, avatar navigation, a separate Account & security button, Health reading previews and the 26-type browser. Metric screens explain missing records and refresh on opening/foreground return.
+Height/weight sharing is currently separate per metric. A combined review/save flow is planned, not implemented.
+A successful real-device Health write/read/import round trip has not been recorded. Medical ID fields are not available through the supported HealthKit interface.
+This audit changes documentation only; no new application behavior or version is introduced.

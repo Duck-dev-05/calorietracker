@@ -23,7 +23,7 @@ struct ContentView: View {
                     AdaptiveNavigation {
                         if account.isAuthenticated { DashboardView() }
                         else { VisitorHomeScreen() }
-                    }.tabItem { Label("Today", systemImage: "house.fill") }
+                    }.tabItem { Label("Dashboard", systemImage: "house.fill") }
                     AdaptiveNavigation { SignInRequired { DiaryView() } }.tabItem { Label("Diary", systemImage: "book.closed.fill") }
                     AdaptiveNavigation { SignInRequired { MealsView() } }.tabItem { Label("Meals", systemImage: "fork.knife") }
                     AdaptiveNavigation { SignInRequired { HealthScreen() } }.tabItem { Label("Health", systemImage: "heart.fill") }
@@ -115,7 +115,7 @@ struct DashboardView: View {
                     NavigationLink(destination: PlannedMealEditorScreen(existing: meal)) { RouteRow(title: meal.name, subtitle: "\(meal.category) · \(meal.calories) kcal", icon: "fork.knife") }.buttonStyle(.plain)
                 }
             }
-        }.navigationTitle("Today").navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle("Dashboard").navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $adding) { AddFoodView().adaptiveEntrySheet() }
     }
 }

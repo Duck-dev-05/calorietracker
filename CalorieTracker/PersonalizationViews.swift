@@ -248,7 +248,7 @@ struct GoalsScreen: View {
             }
             DisclosureGroup {
                 VStack(alignment: .leading, spacing: 12) {
-                    EditorNote(text: "This is a manual target. Choosing a goal doesn't calculate calories, a deficit or a completion date.")
+                    EditorNote(text: "Enter a manual target or review a maintenance estimate. Choosing a goal does not automatically set a deficit or a completion date.")
                     EditorNote(text: "Apple Health activity stays separate. Dated targets preserve past comparisons. An undated legacy target is not copied into unknown past days.")
                     EditorNote(text: "Goal weight is a saved milestone. The input limits are validation limits, not recommendations.")
                 }.padding(.top, 12)
@@ -272,8 +272,10 @@ struct GoalsScreen: View {
             }.disabled(calories == nil)
             Button("Turn off calorie target") { target = ""; macrosEnabled = false; estimate = nil }.font(.caption)
             Divider()
+            if Calendar.current.isDate(effectiveDate, inSameDayAs: diary.now) {
             HStack(alignment: .top) { MiniStat(label: "Eaten today", value: "\(diary.consumed) kcal"); MiniStat(label: "Draft remaining", value: calories.map { "\(max(0, Int($0) - diary.consumed)) kcal" } ?? "—") }
             if let calories, Int(calories) < diary.consumed { Text("\(diary.consumed - Int(calories)) kcal above this draft target today.").font(.caption).foregroundStyle(.secondary) }
+            } else { Text("This future target does not change today's balance.").font(.caption).foregroundStyle(.secondary) }
         }
     }
     private var goalDescription: String {

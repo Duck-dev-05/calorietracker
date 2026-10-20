@@ -112,7 +112,7 @@ struct DailyNutritionScreen: View {
                 Section("Logged nutrition") {
                     ValueRow(title: "Calories logged", value: "\(summary.calories) kcal")
                     ValueRow(title: "Food entries", value: "\(foods.count)")
-                    ValueRow(title: "Calorie target", value: diary.targetCalories(on: date).map { "\($0.formatted()) kcal" } ?? "No target recorded")
+                    ValueRow(title: "Calorie target", value: target != nil && target?.calories == nil ? "Target disabled" : (diary.targetCalories(on: date).map { "\($0.formatted()) kcal" } ?? "No target recorded"))
                     MacroSummaryContent(summary: summary, target: macroTarget)
                 }
             } else { Section { Text("Nutrition could not be summarized. Check the recorded portions.") } }

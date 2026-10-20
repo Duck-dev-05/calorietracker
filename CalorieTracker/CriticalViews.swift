@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HealthMetricScreen: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("healthEnabled") private var healthEnabled = false
     @EnvironmentObject var health: HealthService
     @EnvironmentObject var diary: Diary
     let metric: HealthMetric
@@ -15,10 +17,38 @@ struct HealthMetricScreen: View {
             Surface {
                 HStack { IconTile(icon: metric.icon); Spacer(); Pill(text: result.status.rawValue) }
                 if let value = health.value(metric) { Text("\(value.formatted(.number.precision(.fractionLength(0...1)))) \(metric.unit)").font(.system(.largeTitle, design: .rounded).weight(.bold)) }
-                else { Text("Unavailable").font(.title2.bold()); Text("No current value is shown. Refresh to check for available records.").font(.subheadline).foregroundStyle(.secondary) }
+                else {
+                    Text(result.status == .noData ? "No readable \(metric.title.lowercased()) data" : result.status.rawValue).font(.title2.bold()).fixedSize(horizontal: false, vertical: true)
+                    Text(result.status == .noData ? "Apple Health returned no records. Check that this measurement exists and Nourish can read it." : "Refresh to check Apple Health for a current reading.")
+                        .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 if result.status == .loading { ProgressView("Reading Health data…") }
                 if let error = result.error { Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.red) }
                 Button("Refresh this metric") { Task { await health.refresh(metric) } }.buttonStyle(.bordered).disabled(health.busy)
+            }
+            if health.value(metric) == nil {
+                Surface {
+                    SectionHeading(title: "Check Apple Health")
+                    Text("1. In Health, open Browse and find \(metric.title). Check that a record is saved.")
+                        .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    if !metric.isDaily {
+                        Text("For height or weight, use Body Measurements → \(metric.title) → Add Data if no measurement is saved.")
+                            .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text("2. In Health, tap your profile → Apps → Nourish. Enable reading for \(metric.title).")
+                        .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    Text("3. Return to Nourish. This page checks again automatically.")
+                        .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    Button("Review Health access") {
+                        healthEnabled = true
+                        Task { await health.connect() }
+                    }.buttonStyle(.bordered).disabled(health.busy)
+                    Text("Previously denied access must be changed in Apple Health. An empty result does not reveal whether permission is off or records are missing.")
+                        .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    if metric == .height || metric == .weight {
+                        NavigationLink("Enter a measurement in my profile", destination: PersonalDetailsScreen())
+                    }
+                }
             }
             Surface {
                 SectionHeading(title: "Where this value comes from")
@@ -26,7 +56,7 @@ struct HealthMetricScreen: View {
                 if let sampled = result.reading?.sampleDate { ValueRow(title: "Measurement date", value: sampled.formatted(date: .abbreviated, time: .shortened)) }
                 if let source = result.reading?.source { ValueRow(title: "Recorded by", value: source) }
                 if metric.isDaily { Text("This is a cumulative Apple Health total. A single recording source and sample time are not available for this aggregate.").font(.footnote) }
-                Text("Results are marked for refresh after 15 minutes. Daily activity also expires when the local day or timezone changes. Old values aren't shown as current.").font(.footnote).foregroundStyle(.secondary)
+                Text("Results are marked for refresh after 15 minutes. Daily activity also expires when the local day or timezone changes. Old values aren't shown as current.").font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if (metric == .height || metric == .weight), health.value(metric) != nil {
                 Surface {
@@ -51,7 +81,13 @@ struct HealthMetricScreen: View {
                 Text("HealthKit does not disclose whether an empty query means no records or restricted read access. Manage permissions in Apple Health → your profile → Apps → Nourish. Manual tracking continues without Health access.").font(.footnote).foregroundStyle(.secondary)
             }
         }.navigationTitle(metric.title).navigationBarTitleDisplayMode(.inline)
-        .onAppear { health.expireOldResults() }
+        .task {
+            health.expireOldResults()
+            await health.refresh(metric)
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { Task { await health.refresh(metric) } }
+        }
         .onChange(of: result.fetchedAt) { _ in imported = false }
         .confirmationDialog("Use this Health measurement?", isPresented: $reviewingImport, titleVisibility: .visible) {
             Button("Update my profile") {

@@ -447,3 +447,8 @@ Replaced numbered cards and the large bottom save panel with a compact native fo
 ### Personal details Health visibility — 0.18.4 (33)
 
 Personal Details now shows readable Health height and weight beside saved profile fields, with measurement dates, sources and review/import links. Includes today's steps and active energy, connection/refresh controls, and an expandable browser for all 26 supported Health types. Opening the page refreshes readings when Health refresh is enabled. Displaying readings does not overwrite profile drafts or automatically share measurements. Age and journal name remain manual; activity level is not inferred. On-device permissions, readability and layout need verification.
+
+
+### Missing Health readings — 0.18.5 (34)
+
+Metric pages now refresh on opening and returning to the foreground, show an actionable empty state with Health record/permission steps, and offer access review and manual profile entry. Explanatory text wraps fully. Empty results are never labeled as confirmed permission denial or populated with invented values. Real-device missing height investigation still requires confirmation that a Height sample exists and read access is enabled.

@@ -74,6 +74,7 @@ struct MealsView: View {
     @State private var search = ""
     @State private var onlyFits = false
     @State private var adding = false
+    @State private var createdMeal: Meal?
     private var meals: [Meal] {
         diary.savedMeals.filter { meal in
             guard meal.matches(preference: diary.profile.preferences, excluding: diary.profile.excludedIngredients ?? []) else { return false }
@@ -87,6 +88,14 @@ struct MealsView: View {
             BrandLockup()
             PageIntro(eyebrow: "Your meals", title: "Good food. On repeat.", detail: "Your saved meals, ready to log or plan for later.")
             Button { adding = true } label: { Label("Create a meal", systemImage: "plus") }.buttonStyle(PrimaryAction())
+            if let createdMeal {
+                Surface {
+                    Label("Meal saved", systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(NourishStyle.accent)
+                    Text("Your reusable serving is saved locally. It has not been added to your food diary.").font(.caption).foregroundStyle(.secondary)
+                    NavigationLink(destination: MealDetailScreen(meal: createdMeal)) { RouteRow(title: createdMeal.name, subtitle: "Open to log a portion or add it to your plan", icon: "fork.knife") }.buttonStyle(.plain)
+                    Button("Dismiss confirmation") { self.createdMeal = nil }.font(.caption)
+                }
+            }
             NavigationLink(destination: MealPlanScreen()) { Surface { RouteRow(title: "Your meal planner", subtitle: "Plan from your saved meals", icon: "calendar") } }.buttonStyle(.plain)
             if !diary.savedMeals.isEmpty {
                 Surface {
@@ -112,10 +121,14 @@ struct MealsView: View {
                 }.buttonStyle(.plain)
             }
             if meals.isEmpty {
-                Surface { EmptyCard(title: diary.savedMeals.isEmpty ? "No saved meals yet" : "No matching meals", message: diary.savedMeals.isEmpty ? "Create a meal using your own serving, ingredients and calories. No sample meals are included." : "Change your search or filters to see more of your saved meals.", icon: "fork.knife") }
+                Surface {
+                    EmptyCard(title: diary.savedMeals.isEmpty ? "Create your first meal" : "No matching meals", message: diary.savedMeals.isEmpty ? "Give it a name, describe the ingredients and enter nutrition for your serving." : "Change your search or filters to see more of your saved meals.", icon: "fork.knife")
+                    if diary.savedMeals.isEmpty { Button("Create a meal") { adding = true }.buttonStyle(PrimaryAction()) }
+                }
             }
         }.navigationTitle("Meals").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search your saved meals")
-        .sheet(isPresented: $adding) { MealEditorScreen().adaptiveEntrySheet() }
+        .toolbar { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Create a meal") }
+        .sheet(isPresented: $adding) { MealEditorScreen(onSave: { meal in search = ""; onlyFits = false; createdMeal = meal }).adaptiveEntrySheet() }
     }
 }
 
@@ -282,6 +295,7 @@ struct MealEditorScreen: View {
     @EnvironmentObject var diary: Diary
     @Environment(\.dismiss) private var dismiss
     var existing: Meal? = nil
+    var onSave: ((Meal) -> Void)? = nil
     @State private var nutrition: NutritionSnapshot?
     @State private var name = ""
     @State private var ingredients = ""
@@ -294,12 +308,35 @@ struct MealEditorScreen: View {
     var body: some View {
         AdaptiveNavigation {
             Form {
-                Section("Your meal") {
-                    TextField("Meal name", text: $name).focused($focused)
-                    TextField("Ingredients and serving description", text: $ingredients).focused($focused)
+                Section {
+                    Label(existing == nil ? "Build your own meal" : "Update your saved meal", systemImage: "fork.knife").font(.headline)
+                    Text("Save one reusable serving. You can log any portion or plan it for another day afterwards.").font(.subheadline).foregroundStyle(.secondary)
+                }
+                Section("1 · Name your meal") {
+                    TextField("Meal name", text: $name).focused($focused).textInputAutocapitalization(.words)
+                    if name.count > 500 { Text("Keep the meal name under 500 characters.").font(.caption).foregroundStyle(.red) }
+                }
+                Section("2 · Ingredients & serving") {
+                    ZStack(alignment: .topLeading) {
+                        if ingredients.isEmpty { Text("Describe the ingredients, amounts and what one serving contains.").foregroundStyle(.secondary).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false) }
+                        TextEditor(text: $ingredients).frame(minHeight: 130).focused($focused).accessibilityLabel("Ingredients and serving description")
+                    }
+                    if ingredients.count > 2000 { Text("Keep ingredients and serving details under 2,000 characters.").font(.caption).foregroundStyle(.red) }
                     Toggle("This meal is vegetarian", isOn: $vegetarian)
                 }
+                Section("3 · Add serving nutrition") {
+                    Text("Open Nutrition & Portion below, enter values from your label or source, review the calculated serving and tap Apply. Nutrition is entered by you, not generated from the ingredient list.").font(.footnote).foregroundStyle(.secondary)
+                }
                 NutritionSelectionSection(snapshot: $nutrition, legacyCalories: existing?.calories)
+                Section {
+                    if valid {
+                        Label("Ready to save", systemImage: "checkmark.circle").font(.subheadline).foregroundStyle(NourishStyle.accent)
+                    } else {
+                        Text("To save, enter a name, ingredients and valid serving nutrition.").font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Button(existing == nil ? "Save meal" : "Save changes", action: save).buttonStyle(PrimaryAction()).disabled(!valid)
+                    Text("Saving updates your meal collection only. Log or plan it separately.").font(.caption).foregroundStyle(.secondary)
+                }
                 if let existing { Section { Button("Delete saved meal", role: .destructive) { deleting = true }.accessibilityLabel("Delete \(existing.name)") } }
                 if let error = diary.storageError { Text(error).foregroundStyle(.red) }
             }.navigationTitle(existing == nil ? "Create meal" : "Edit meal").navigationBarTitleDisplayMode(.inline)
@@ -322,6 +359,6 @@ struct MealEditorScreen: View {
             var meals = saved.savedMeals ?? []
             if let index = meals.firstIndex(where: { $0.id == meal.id }) { meals[index] = meal } else { meals.append(meal) }
             saved.savedMeals = meals
-        }) { dismiss() }
+        }) { onSave?(meal); dismiss() }
     }
 }

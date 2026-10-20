@@ -349,3 +349,8 @@ Recommended next implementation slice: account test boundaries + focused lifecyc
 Completed: shared Nutrition & Portion page with isolated draft/Cancel/Apply, immutable reference snapshots, arbitrary quantities and decimal meal servings, full precision preservation for untouched fields, no automatic macro deletion, explicit below-1-kcal rejection, legacy metadata-only editing, food/meal/plan integration and expanded regression coverage. No diary schema, bundle ID, account identity or stored-record rewrite is introduced. Save still uses validated atomic transactions; failed saves preserve memory/disk.
 
 Phase 1 is still partial overall: dated calorie/macro targets, researched calculator/review UI, structured source/ingredient metadata, optional serving-weight conversion and serialized asynchronous persistence remain. Dynamic activity budgets stay disabled until dated targets and duplicate-energy policy are implemented. Do not treat this critical nutrition slice as completed BMR/TDEE or recommendation functionality. Physical-device editor/keyboard/Cancel/save-failure checks remain required.
+
+
+## Create meal workflow — v0.13.1
+
+Meals has Create Meal entry points at the top, navigation toolbar and empty state. The editor guides name -> multiline ingredients/serving -> reviewed nutrition -> Save Meal, with validation and explicit collection-only behavior. A successful save confirmation opens the exact saved meal to log/plan it, even if dietary filters hide it in the list. Failed writes leave the editor open with its draft and error. No mock meals or inferred ingredient nutrition are added.

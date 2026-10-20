@@ -151,3 +151,8 @@ Validation: configuration/core tests and iOS IPA compilation via CI; visual chec
 ## v0.13.0 — Phase 1 nutrition foundation
 
 Food, saved meals and plans share a Nutrition & Portion page: label reference amount/unit, calories/macros, consumed quantity and source, with a calculated preview. Cancel discards editor changes; Apply updates a draft and Save commits it. Unchanged nutrient values retain exact precision. Calorie edits no longer silently clear macros. Meal details accepts arbitrary decimal servings within validated limits. Legacy metadata edits retain unknown nutrition. Zero-energy entries and portions rounding below 1 kcal remain explicitly unsupported, without silent coercion. No BMR/TDEE estimates or dynamic activity budgets are enabled in this release.
+
+
+## Create meal workflow — v0.13.1
+
+Meals has Create Meal entry points at the top, navigation toolbar and empty state. The editor guides name -> multiline ingredients/serving -> reviewed nutrition -> Save Meal, with validation and explicit collection-only behavior. A successful save confirmation opens the exact saved meal to log/plan it, even if dietary filters hide it in the list. Failed writes leave the editor open with its draft and error. No mock meals or inferred ingredient nutrition are added.

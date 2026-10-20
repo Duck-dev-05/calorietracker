@@ -69,14 +69,10 @@ struct LoginScreen: View {
     private var valid: Bool { AccountValidation.email(email) && !password.isEmpty }
     var body: some View {
         PageCanvas {
-            AccountHeader(title: "Welcome back.", subtitle: "Your journal is a sign-in away.")
             if account.supportsPassword {
             Surface {
-                SectionHeading(title: "Log in with email", subtitle: "Use the account registered on this iPhone. All accounts share this device’s journal.")
-                Text("EMAIL").font(.caption.bold()).foregroundStyle(.secondary)
                 AccountEmailField(text: $email)
                 if attempted && !AccountValidation.email(email) { Text("Enter a valid email address.").font(.caption).foregroundStyle(.red) }
-                Text("PASSWORD").font(.caption.bold()).foregroundStyle(.secondary)
                 PasswordInput(title: "Password", text: $password)
                 HStack { Spacer(); NavigationLink("Password help", destination: ResetPasswordScreen()).font(.subheadline) }
                 if let error { Label(error, systemImage: "exclamationmark.circle").font(.footnote).foregroundStyle(.red) }
@@ -84,9 +80,13 @@ struct LoginScreen: View {
             }
             AccountAvailability()
             }
-            HStack(spacing: 14) { Rectangle().frame(height: 0.5); Text("OR").font(.caption2.weight(.semibold)).tracking(1); Rectangle().frame(height: 0.5) }.foregroundStyle(.secondary).accessibilityHidden(true)
-            GoogleAccountAction()
-            HStack { Text("New to Nourish?").foregroundStyle(.secondary); NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)) }.font(.subheadline).frame(maxWidth: .infinity)
+            GoogleAccountAction(compact: true)
+            NavigationLink("Create an account", destination: RegisterScreen()).font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+            VStack(spacing: 6) {
+                Text("Signed-in accounts share this iPhone's journal.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                NavigationLink("Privacy & storage", destination: PrivacyScreen()).font(.caption)
+            }.frame(maxWidth: .infinity)
+
         }.navigationTitle("Log in").navigationBarTitleDisplayMode(.inline).onDisappear { password = "" }
     }
     private func signIn() {

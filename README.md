@@ -195,3 +195,8 @@ Navigation follow-up: iOS 26 tabs stay expanded while scrolling so destination n
 ## Dashboard content — v0.17.1
 
 Dashboard now greets the signed-in user and groups a calorie balance/target action, a real-data snapshot (food entry count, logged water, readable steps/active energy), the latest three food entries, the day's planned meals and links to weekly progress and Health/Fitness. Entries open their actual detail/edit pages. Day grouping uses the diary clock consistently. No sample data, recommendations, inferred macro totals or automatic activity-budget changes are introduced; missing Health values are explained.
+
+
+## Compact Login — v0.17.2
+
+Login removes the welcome/brand header, repeated section/field headings, decorative OR divider, Google information card and New-to-Nourish sentence. Keeps the email/password form, password help, official Google button, registration link, actionable errors and a short shared-journal notice/privacy link. Google sharing details remain in Privacy and on other authentication pages. Google loading feedback now follows its own button operation rather than an unrelated email login. Authentication/storage behavior is unchanged.

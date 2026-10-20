@@ -15,7 +15,14 @@ import HealthKit
     private func unit(_ metric: HealthMetric) -> HKUnit {
         switch metric { case .steps: return .count(); case .activeEnergy: return .kilocalorie(); case .height: return .meterUnit(with: .centi); case .weight: return .gramUnit(with: .kilo) }
     }
-    func requestAccess() async throws { guard authorized() else { throw AccessDenied(permission: .readHealth) }; try await store.requestAuthorization(toShare: [], read: Set(HealthMetric.allCases.map { type($0) })) }
+    func requestAccess() async throws { guard authorized() else { throw AccessDenied(permission: .readHealth) }; try await store.requestAuthorization(toShare: [], read: HealthCatalogueReader.readTypes) }
+    func browse(_ kind: HealthDataKind, day: Date?, limit: Int) async throws -> [HealthDataRecord] {
+        guard authorized() else { throw AccessDenied(permission: .readHealth) }
+        guard available else { throw DiaryFailure.invalid("Apple Health is unavailable on this device.") }
+        let records = try await HealthCatalogueReader.read(kind, day: day, limit: limit, store: store)
+        guard authorized() else { throw AccessDenied(permission: .readHealth) }
+        return records
+    }
     func requestWriteAccess(_ metric: HealthMetric) async throws {
         guard authorized() else { throw AccessDenied(permission: .shareHealth) }
         guard metric == .height || metric == .weight else { throw DiaryFailure.invalid("Only body measurements can be shared.") }
@@ -63,13 +70,15 @@ import HealthKit
     }
 }
 @MainActor final class HealthService: ObservableObject {
+    private let provider: HealthKitProvider
+    @Published private(set) var browseRevision = 0
     private let monitor: HealthMonitor
     private let sharing: HealthSharingController
     private var subscription: AnyCancellable?
     private let authorized: () -> Bool
     init(authorized: @escaping () -> Bool) {
         self.authorized = authorized
-        let provider = HealthKitProvider(authorized: authorized)
+        provider = HealthKitProvider(authorized: authorized)
         monitor = HealthMonitor(provider: provider)
         sharing = HealthSharingController(provider: provider, authorized: authorized)
         subscription = Publishers.Merge(monitor.objectWillChange, sharing.objectWillChange).sink { [weak self] _ in self?.objectWillChange.send() }
@@ -85,6 +94,7 @@ import HealthKit
     func value(_ metric: HealthMetric) -> Double? { authorized() ? monitor.value(metric) : nil }
     func result(_ metric: HealthMetric) -> MetricResult { authorized() ? monitor.result(metric) : MetricResult() }
     func expireOldResults() { monitor.expireOldResults() }
-    func connect() async { await monitor.connect() }
-    func refresh(_ metric: HealthMetric? = nil) async { await monitor.refresh(metric) }
+    func browse(_ kind: HealthDataKind, day: Date? = nil, limit: Int = 200) async throws -> [HealthDataRecord] { try await provider.browse(kind, day: day, limit: min(max(limit, 1), 200)) }
+    func connect() async { await monitor.connect(); browseRevision += 1 }
+    func refresh(_ metric: HealthMetric? = nil) async { await monitor.refresh(metric); if metric == nil { browseRevision += 1 } }
 }

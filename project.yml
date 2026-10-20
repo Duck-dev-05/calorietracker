@@ -22,13 +22,13 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: com.personal.CalorieTracker
         SWIFT_VERSION: '5.0'
-        MARKETING_VERSION: '0.15.0'
-        CURRENT_PROJECT_VERSION: '23'
+        MARKETING_VERSION: '0.16.0'
+        CURRENT_PROJECT_VERSION: '24'
         INFOPLIST_KEY_CFBundleDisplayName: Nourish
         TARGETED_DEVICE_FAMILY: '1'
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: Config/GoogleInfo.generated.plist
-        INFOPLIST_KEY_NSHealthShareUsageDescription: Import your height, weight, steps and active energy to personalize your daily overview.
+        INFOPLIST_KEY_NSHealthShareUsageDescription: Show your activity, workouts, body measurements, heart and respiratory readings, sleep, mindfulness and nutrition after you choose Health access.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: Save height or weight measurements to Apple Health only after you review and confirm sharing.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
     entitlements:

@@ -71,7 +71,7 @@ struct HealthScreen: View {
     @AppStorage("healthEnabled") private var enabled = false
     var body: some View {
         PageCanvas {
-            PageIntro(eyebrow: "Optional connection", title: "Your activity, with context.", detail: "Open a metric to review its status, update time and available source information.")
+            PageIntro(eyebrow: "Apple Health & Fitness", title: "Your health, in one place.", detail: "Connect, choose the data you allow, then browse your available records.")
             Surface {
                 Text(health.status).font(.subheadline)
                 Button("Connect / manage Health access") { enabled = true; Task { await health.connect() } }.buttonStyle(PrimaryAction()).disabled(health.busy)
@@ -95,6 +95,7 @@ struct HealthScreen: View {
                     }
                 }.buttonStyle(.plain)
             }
+            HealthCataloguePanel()
             Text("An empty result may mean no records or restricted read access. Height and weight are written only after you review sharing and allow the selected permission.").font(.footnote).foregroundStyle(.secondary)
         }.navigationTitle("Apple Health").navigationBarTitleDisplayMode(.inline).onAppear { health.expireOldResults() }
     }
@@ -134,7 +135,7 @@ struct PrivacyScreen: View {
     var body: some View {
         List {
             Section("Stored on your device") { Text("Your profile, food diary, planned meals, water logs and weight history are saved locally with file protection. Preferences use the device's local settings storage. Device backups follow your iPhone settings.") }
-            Section("Apple Health") { Text("Nourish reads height, body mass, steps and active energy when you connect. Importing a measurement requires review. Sharing height or weight requests write permission for that type and saves only the reviewed measurement. This is separate from local profile saving; no steps, workouts, energy or rings are written. Local deletion does not delete Health records.") }
+            Section("Apple Health") { Text("Nourish requests read access for the 26 types listed in the Health browser, including activity summaries, workouts, body measurements, heart/respiratory readings, sleep, mindfulness and nutrition. Choose which types to allow. Browser records remain in memory and are not included in diary exports. Importing a measurement requires review. Sharing height or weight requests write permission for that type and saves only the reviewed measurement. This is separate from local profile saving; no steps, workouts, energy or rings are written. Local deletion does not delete Health records.") }
             Section("Google sign-in") { Text("Google receives the OAuth sign-in request and shares basic profile information and email with Nourish. Google credentials are managed by its SDK and Keychain; they are not included in journal backups. The app does not send food or Apple Health records to Google. Local email/password accounts are also available and stay in this installation’s private Keychain. Your journal remains on this device; signing in does not provide cloud sync or separate journals for different accounts.") }
             Section("Network & accounts") { Text("Google sign-in connects to Google. Local registration and login work on this device without a server; email ownership is not verified and password recovery is unavailable. No advertising or analytics service is integrated. There is no automatic cloud synchronization. You can export a JSON backup to a location you choose in Files. Exported backups contain your personal information and are not encrypted by Nourish.") }
             Section("Backups & recovery") { NavigationLink("Open backup & restore", destination: BackupScreen()); Text("Before replacing or resetting a diary, Nourish preserves the old file on this device. Keep an exported copy before uninstalling the app.") }

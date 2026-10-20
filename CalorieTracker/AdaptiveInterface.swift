@@ -18,7 +18,7 @@ struct AdaptiveTabs: ViewModifier {
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             // Native system tabs provide Liquid Glass; don't place a second glass layer behind them.
-            content.tabBarMinimizeBehavior(reduceMotion ? .never : .onScrollDown)
+            content.tabBarMinimizeBehavior(.never)
         } else {
             content
         }

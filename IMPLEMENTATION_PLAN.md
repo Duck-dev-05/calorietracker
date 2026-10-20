@@ -1,6 +1,6 @@
 # Nourish Calorie Tracker — Implementation Plan
 
-Reviewed: 20 October 2026. Current code: **0.18.5, build 34**. Historical baseline: `74e0231`, v0.17.3. New build verification is recorded with the release outcome.
+Reviewed: 20 October 2026. Current code: **0.20.0, build 37** (Phase 1 coding completion; CI result recorded separately). Historical baseline: `74e0231`, v0.17.3. New build verification is recorded with the release outcome.
 
 This is the consolidated current plan. It replaces the older appended release notes and superseded role/login directions. Status reflects repository code and the latest verified build, not assumed device testing.
 
@@ -68,7 +68,7 @@ Current behavior to preserve:
 
 ## 4. Phase 1 — Nutrition, storage and calculation foundation
 
-**Status: Foundation implemented. Calculations, dated targets, macro allocation and history exist. Device acceptance and the remaining extensions below are open.**
+**Status: Phase 1 coding complete in v0.20.0. Physical-device acceptance remains pending.**
 
 ### Completed foundation
 
@@ -94,31 +94,30 @@ Current behavior to preserve:
 - [x] Current/future/historical comparisons resolve effective targets; undated legacy targets are not backfilled.
 - [x] Migration and target tests cover original archives, failed writes, stale editors, revisions, unknown history, estimate validation and backup round trips.
 
-### Remaining Phase 1 work
+### Phase 1 completion update — v0.20.0 (37)
 
-| Priority | Work | Existing page to extend / acceptance |
-| --- | --- | --- |
-| Critical verification | Validate new target/estimate/summary flows on the phone and upgrade a populated schema-3 diary | Goals, Target History, Daily Nutrition, backup/recovery; test dates/locales, future activation, unknown historical data and retained exact backups |
-| Critical gate before dynamic targets | Define and test baseline activity versus active-energy adjustment | Keep current activity separate until tested; never add workout energy twice |
-| High when external foods are added | Structured attribution: source ID, reference basis, retrieval/version and ingredient provenance | Extend existing nutrition editor/details and immutable snapshots with a versioned migration |
-| Medium | Structured ingredient quantities and recipe yield | Extend Create/Edit Meal; calculations use traceable ingredient snapshots and explicit yield |
-| Medium | Explicit serving-weight/density mappings | Extend Portion editor only when real mapping data is supplied; never guess missing conversions |
-| Medium; promote demonstrated failures | Async serialized persistence/import responsiveness | Retain commit ordering, stale-file checks, atomic writes and publish-after-success behavior |
-| Ongoing | Real-file migration fixtures and expanded device coverage | Verify legacy data, cancel/retry, save failure, app updates, accessibility and representative storage sizes |
+**Coding complete; physical-device acceptance pending.** Phase 1's remaining source, recipe, conversion, persistence and migration foundations are implemented. Do not interpret this as a completed phone test.
 
-Target History, Macro Target controls, Calorie Estimate Review and Daily Nutrition pages are now created. Do not restart these as missing features; verify and extend them.
+- [x] Structured nutrition attribution: kind, provider, source record ID, version, retrieval date and optional HTTPS link. External records require the identifying fields. Records are attribution, not verification.
+- [x] Immutable ingredient snapshots, explicit quantities and recipe yield. Recipe totals and one-serving nutrition are calculated; incomplete macros remain unknown. Existing ingredient/serving descriptions remain available.
+- [x] Recipe builder and ingredient editor from the existing nutrition selector; source/mapping editor in Nutrition & portion. Historical logs retain their recipe inputs after saved meals change.
+- [x] Explicit serving mass/volume and density mappings. Missing bridges and inconsistent values are rejected; no food-name or density guesses.
+- [x] Schema 5 for the new snapshot metadata; nil/schema 1–4 decoding retained. Exact original files are archived before first migration write. Older app versions reject schema 5 rather than discarding new data.
+- [x] Serialized background queue for recipe-meal commits, backup export, backup decoding/restoration and recovery-copy decoding/export. The main-actor save gate rejects competing operations; commits preserve baseline checks, archive-before-replacement and publish-after-success behavior. Existing small synchronous operations retain their established API.
+- [x] Activity accounting is explicit and tested: dated baseline targets remain unchanged by Health active calories or workouts. Dynamic additions are disabled, avoiding double counting activity already in the maintenance multiplier.
+- [x] Checked-in file fixtures for legacy/nil/schema 1/2/3/4, migration/archive regression, recipe/mapping/source tests, async failure/save-gate checks and a representative 2,000-entry export/restore round trip.
 
-### Deferred choices, not current release blockers
+### Phase 1 acceptance still requiring the iPhone
 
-- Zero-calorie foods: unsupported by the current entry contract. Add support only with an explicit tested compatibility decision; do not bypass validation or coerce zero to one.
-- Core Data: optional future migration, not a prerequisite for finishing the current foundation.
-- USDA, AI/LLM recommendations, cloud synchronization and account recovery are separate roadmap work, not missing Phase 1 calculation code.
-- Recovery archive browsing is a separate tooling enhancement; automatic archives and last-archive export already exist.
+- [ ] Update an existing populated installation; check journal entries, measurements, dates, targets and recovery files.
+- [ ] Export through Files and restore a reviewed copy; test cancellation and error presentation.
+- [ ] Exercise recipe/source/mapping pages with your decimal locale, keyboard and small-screen/Dynamic Type settings.
+- [ ] Confirm future target activation and honest unknown-macro coverage across day/timezone changes.
+- [ ] Record actual device responsiveness and supported iOS-version coverage. A representative automated round trip does not establish performance on every phone.
 
-### Next implementation slice
+### Explicitly deferred beyond Phase 1
 
-Validate the new target and nutrition workflows on the actual iPhone, then extend structured provenance/ingredients where required. Dynamic Health calorie adjustment remains disabled. Current implemented foundations do not imply completion of all recipe, source, performance or real-device acceptance work.
-
+USDA, online AI, ranked suggestions, cloud sync and account lifecycle extensions belong to later phases. Zero-calorie entry support remains an explicit later compatibility decision. Core Data is optional, not a prerequisite. Automatic recovery-copy deletion is not enabled.
 
 ## 5. Phase 2 — HealthKit and deterministic recommendations
 
@@ -478,3 +477,4 @@ Implemented Height & weight from Profile and Personal Details. Select either/bot
 ### Data protection — 0.19.1 (36)
 
 Restore previews are tied to the journal revision: subsequent local edits require a fresh preview. Recovery reset/restore now compares the exact original file even after a corrupt-file load; unreadable originals cannot be replaced until safely reloaded. Export rejects stale in-memory data after external file changes. Backup & restore includes a nondestructive Recovery copies browser with per-file date/size, original-byte export and validated reviewed restore. Copies are not automatically deleted. Added regression tests for stale previews, changed corrupt files, stale exports, recovery retention/relaunch/access control and archive failure. Existing migration archives, schema-4 validation and publish-after-success atomic writes remain. Physical iPhone update/export/import verification remains pending; no user data was modified by this development work.
+\n\n### Release 0.20.0 (37)\n\nPhase 1 source/recipe/mapping and background bulk-storage work is implemented. Schema 5 preserves schema 1–4 and legacy decoding with exact pre-migration archives. Check CI for verification outcome; device acceptance remains open. Export an independent backup before installing updates; do not downgrade after schema-5 migration.\n

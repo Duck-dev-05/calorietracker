@@ -97,7 +97,7 @@ final class NutritionEditingTests: XCTestCase {
             XCTAssertNil(restored.foods[0].nutrition)
             XCTAssertNil(restored.profile.target)
             XCTAssertEqual(restored.ownerAccountID, "legacy-owner")
-            XCTAssertEqual(restored.schemaVersion, 4)
+            XCTAssertEqual(restored.schemaVersion, 5)
             XCTAssertEqual(try DiarySnapshot.decode(restored.encoded()).foods[0].id, snapshot.foods[0].id)
         }
     }

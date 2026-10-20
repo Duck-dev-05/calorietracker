@@ -1,0 +1,77 @@
+{
+  "profile": {
+    "name": "Fixture journal",
+    "height": 175.125,
+    "weight": 58.5123456789,
+    "goal": "Maintain",
+    "preferences": "Balanced"
+  },
+  "foods": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Historical label",
+      "calories": 250,
+      "date": 700000000,
+      "category": "Lunch",
+      "nutrition": {
+        "referenceQuantity": 100,
+        "referenceUnit": "gram",
+        "referenceNutrients": {
+          "calories": 200,
+          "protein": 12.3456789012345,
+          "fat": 0
+        },
+        "quantity": 125,
+        "unit": "gram",
+        "source": "Historical label"
+      }
+    }
+  ],
+  "schemaVersion": 4,
+  "water": [
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "date": 700000000,
+      "milliliters": 250
+    }
+  ],
+  "weights": [
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "date": 700000000,
+      "kilograms": 58.5123456789
+    }
+  ],
+  "savedMeals": [
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "Historical meal",
+      "detail": "Recorded serving",
+      "calories": 250,
+      "vegetarian": true
+    }
+  ],
+  "planned": [
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "date": 700000000,
+      "name": "Historical plan",
+      "calories": 250,
+      "category": "Lunch"
+    }
+  ],
+  "targets": [
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "effectiveDay": "2026-10-20",
+      "calories": 2000,
+      "allocation": {
+        "protein": 30,
+        "carbohydrate": 40,
+        "fat": 30
+      },
+      "method": "manual-v1",
+      "createdAt": 700000000
+    }
+  ]
+}

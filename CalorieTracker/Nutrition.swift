@@ -43,12 +43,23 @@ struct NutritionSnapshot: Codable, Equatable {
     let unit: NutritionUnit
     let source: String
     var sourceMealID: UUID? = nil
+    var provenance: NutritionProvenance? = nil
+    var mapping: PortionMapping? = nil
+    var recipe: RecipeSnapshot? = nil
 
     func totals() throws -> NutrientValues {
         guard referenceQuantity.isFinite, referenceQuantity > 0, referenceQuantity <= 1_000_000,
               quantity.isFinite, quantity > 0, quantity <= 1_000_000,
               !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, source.count <= 300 else { throw DiaryFailure.invalid("Nutrition needs a valid reference portion, consumed quantity and source.") }
-        let converted = try unit.converted(quantity, to: referenceUnit)
+        try provenance?.validate()
+        try mapping?.validate()
+        if let recipe {
+            let batch = try recipe.totals()
+            guard referenceUnit == .serving, referenceQuantity == recipe.yieldServings, referenceNutrients == batch else {
+                throw DiaryFailure.invalid("Recipe reference no longer matches its ingredients. Rebuild the recipe or explicitly switch to manual nutrition.")
+            }
+        }
+        let converted = try mapping?.converted(quantity, from: unit, to: referenceUnit) ?? unit.converted(quantity, to: referenceUnit)
         return try referenceNutrients.multiplied(by: converted / referenceQuantity)
     }
     func roundedCalories() throws -> Int {
@@ -66,6 +77,14 @@ struct NutritionSnapshot: Codable, Equatable {
 
 extension Meal {
     func portion(_ servings: Double) throws -> NutritionSnapshot {
+        if var snapshot = nutrition {
+            snapshot = NutritionSnapshot(referenceQuantity: snapshot.referenceQuantity, referenceUnit: snapshot.referenceUnit,
+                referenceNutrients: snapshot.referenceNutrients, quantity: snapshot.quantity * servings,
+                unit: snapshot.unit, source: snapshot.source, sourceMealID: id,
+                provenance: snapshot.provenance, mapping: snapshot.mapping, recipe: snapshot.recipe)
+            _ = try snapshot.roundedCalories()
+            return snapshot
+        }
         // Legacy saved meals have user-entered calories per serving, but unknown macros.
         let reference = try nutrition?.totals() ?? NutrientValues(calories: Double(calories))
         let result = NutritionSnapshot(referenceQuantity: 1, referenceUnit: .serving, referenceNutrients: reference, quantity: servings, unit: .serving, source: nutrition?.source ?? "User-entered saved meal", sourceMealID: id)

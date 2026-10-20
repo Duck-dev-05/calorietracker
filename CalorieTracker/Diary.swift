@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 struct DiarySnapshot: Codable {
-    var schemaVersion: Int? = 4
+    var schemaVersion: Int? = 5
     var ownerAccountID: String? = nil
     var profile: Profile
     var foods: [Food]
@@ -18,7 +18,7 @@ struct DiarySnapshot: Codable {
         return counts.reduce(0, +)
     }
     func validated() throws -> DiarySnapshot {
-        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 || schemaVersion == 3 || schemaVersion == 4 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
+        guard schemaVersion == nil || schemaVersion == 1 || schemaVersion == 2 || schemaVersion == 3 || schemaVersion == 4 || schemaVersion == 5 else { throw DiaryFailure.invalid("This backup uses a newer, unsupported format.") }
         if let ownerAccountID, ownerAccountID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || ownerAccountID.count > 300 { throw DiaryFailure.invalid("Invalid journal owner identifier.") }
         for (value, range) in [(profile.height, 80.0...250.0), (profile.weight, 20.0...400.0), (profile.target, 500.0...10000.0)] {
             if let value, !value.isFinite || !range.contains(value) { throw DiaryFailure.invalid("A measurement or calorie target is outside the supported input range.") }
@@ -49,7 +49,7 @@ struct DiarySnapshot: Codable {
         for target in targets ?? [] { try target.validate() }
         guard Set((targets ?? []).map(\.id)).count == (targets ?? []).count else { throw DiaryFailure.invalid("Duplicate target identifiers.") }
         var result = self
-        result.schemaVersion = 4; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
+        result.schemaVersion = 5; result.water = water ?? []; result.weights = weights ?? []; result.planned = planned ?? []; result.savedMeals = savedMeals ?? []
         return result
     }
     static func decode(_ data: Data) throws -> DiarySnapshot {
@@ -78,6 +78,7 @@ enum DiaryFailure: LocalizedError {
     private func require(_ permission: AppPermission) throws { try account.require(permission) }
     @Published private(set) var now = Date()
     private var timeZoneID = TimeZone.current.identifier
+    @Published private(set) var isSaving = false
     @Published var storageError: String?
     @Published private(set) var storageBlocked = false
     @Published private(set) var lastArchiveURL: URL?
@@ -117,6 +118,7 @@ enum DiaryFailure: LocalizedError {
         #endif
     }
     func retryLoad() {
+        guard !isSaving else { storageError = "A save is in progress. Wait before reloading."; return }
         diskBaselineKnown = false
         do {
             if FileManager.default.fileExists(atPath: url.path) {
@@ -133,12 +135,13 @@ enum DiaryFailure: LocalizedError {
                 }
                 let loaded = try DiarySnapshot.decode(data)
                 let version = try JSONDecoder().decode(DiarySnapshot.self, from: data).schemaVersion
-                storedSnapshot = loaded; diskBaseline = data; migrationPending = version != 4
+                storedSnapshot = loaded; diskBaseline = data; migrationPending = version != 5
             } else { storedSnapshot = .empty; diskBaseline = nil; diskBaselineKnown = true; migrationPending = false }
             storageBlocked = false; externalConflict = false; storageError = nil; revision = UUID()
         } catch { storageBlocked = true; storageError = "Your diary could not be opened. The original file is preserved. \(error.localizedDescription)" }
     }
     @discardableResult func transaction(_ change: (inout DiarySnapshot) throws -> Void) -> Bool {
+        guard !isSaving else { storageError = "A save is in progress. Try again when it finishes."; return false }
         guard !storageBlocked else { storageError = "Storage is locked. Open recovery to restore access before saving."; return false }
         do {
             try require(.editJournal)
@@ -285,6 +288,12 @@ enum DiaryFailure: LocalizedError {
         }
         return try Data(contentsOf: file)
     }
+    func recoveryDataAsync(named name: String) async throws -> Data {
+        guard let file = try recoveryFiles().first(where: { $0.lastPathComponent == name }) else { throw DiaryFailure.invalid("Recovery copy unavailable.") }
+        let data = try await JournalIO.perform { try Data(contentsOf: file) }
+        try require(.exportJournal)
+        return data
+    }
     private func archiveOriginal() throws {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let archive = url.deletingLastPathComponent().appendingPathComponent("Recovery", isDirectory: true).appendingPathComponent("diary-before-replace-\(UUID().uuidString).json")
@@ -297,6 +306,7 @@ enum DiaryFailure: LocalizedError {
         return replace(with: empty)
     }
     @discardableResult func replace(with replacement: DiarySnapshot, expectedRevision: UUID? = nil) -> Bool {
+        guard !isSaving else { storageError = "A save is in progress. Wait before replacing the journal."; return false }
         do {
             try require(.restoreJournal)
             if let expectedRevision, expectedRevision != revision { throw DiaryFailure.invalid("Your journal changed after this preview. Select the backup again before restoring.") }
@@ -315,13 +325,80 @@ enum DiaryFailure: LocalizedError {
             return true
         } catch { storageError = "Diary was not replaced. \(error.localizedDescription)"; return false }
     }
+    /// Async path used for recipes and large backup operations. Competing edits
+    /// are explicitly rejected rather than silently racing a pending commit.
+    @discardableResult func transactionAsync(_ change: (inout DiarySnapshot) throws -> Void) async -> Bool {
+        guard !storageBlocked, !isSaving else { storageError = "Storage is locked or a save is in progress."; return false }
+        do {
+            try require(.editJournal)
+            var candidate = storedSnapshot
+            try change(&candidate)
+            guard candidate.ownerAccountID == storedSnapshot.ownerAccountID else { throw DiaryFailure.invalid("Journal ownership cannot change during an edit.") }
+            return await commitAsync(candidate, permission: .editJournal, archive: migrationPending)
+        } catch { storageError = "Changes were not saved. \(error.localizedDescription)"; return false }
+    }
+    @discardableResult func replaceAsync(with replacement: DiarySnapshot, expectedRevision: UUID) async -> Bool {
+        guard !isSaving, !externalConflict, expectedRevision == revision else {
+            storageError = "The journal changed or a save is in progress. Select the backup again before restoring."; return false
+        }
+        guard replacement.ownerAccountID == storedSnapshot.ownerAccountID else {
+            storageError = "This backup belongs to a different journal owner."; return false
+        }
+        return await commitAsync(replacement, permission: .restoreJournal, archive: true)
+    }
+    private func commitAsync(_ candidate: DiarySnapshot, permission: AppPermission, archive: Bool) async -> Bool {
+        guard diskBaselineKnown else { storageError = "Reload the original file safely before saving."; return false }
+        isSaving = true; defer { isSaving = false }
+        let baseline = diskBaseline, target = url, write = writer
+        do {
+            try require(permission)
+            let prepared = try await JournalIO.perform { () -> (DiarySnapshot, Data) in
+                let normalized = try candidate.validated()
+                return (normalized, try normalized.encoded())
+            }
+            try Task.checkCancellation()
+            try require(permission)
+            let outcome = try await JournalIO.perform {
+                JournalIO.commit(prepared.1, to: target, baseline: baseline, archive: archive, writer: write)
+            }
+            if let archive = outcome.archive { lastArchiveURL = archive }
+            if let error = outcome.error {
+                // Preserve stale-file blocking, but ordinary write failures stay retryable.
+                do { try await JournalIO.perform { try JournalIO.check(target, baseline: baseline) } }
+                catch { storageBlocked = true; externalConflict = true }
+                throw error
+            }
+            diskBaseline = prepared.1; diskBaselineKnown = true; migrationPending = false
+            storedSnapshot = prepared.0; storageBlocked = false; externalConflict = false
+            revision = UUID(); storageError = nil
+            return true
+        } catch { storageError = "Journal was not saved. \(error.localizedDescription)"; return false }
+    }
+    func backupDataAsync() async throws -> Data {
+        try require(.exportJournal)
+        guard !storageBlocked, !isSaving, diskBaselineKnown else { throw DiaryFailure.invalid("Wait for saving to finish, or open storage recovery before exporting.") }
+        isSaving = true; defer { isSaving = false }
+        let saved = storedSnapshot, target = url, baseline = diskBaseline
+        do {
+            let data = try await JournalIO.perform {
+                try JournalIO.check(target, baseline: baseline)
+                return try saved.encoded()
+            }
+            try require(.exportJournal)
+            return data
+        } catch {
+            do { try await JournalIO.perform { try JournalIO.check(target, baseline: baseline) } }
+            catch { storageBlocked = true; externalConflict = true }
+            throw error
+        }
+    }
     var today: [Food] { foods.filter { Calendar.current.isDate($0.date, inSameDayAs: now) } }
     var consumed: Int { today.reduce(0) { $0 + $1.calories } }
     var targetRecords: [NutritionTarget] { snapshot.targets ?? [] }
     func target(on date: Date) -> NutritionTarget? { NutritionTarget.effective(in: targetRecords, day: NutritionTarget.dayKey(date)) }
     func targetCalories(on date: Date) -> Double? {
-        if !targetRecords.isEmpty { return target(on: date)?.calories }
-        return Calendar.current.isDate(date, inSameDayAs: now) ? profile.target : nil
+        if !targetRecords.isEmpty { return try? ActivityBudgetPolicy.target(baseline: target(on: date)?.calories, activeEnergy: nil, workoutEnergy: nil) }
+        return Calendar.current.isDate(date, inSameDayAs: now) ? (try? ActivityBudgetPolicy.target(baseline: profile.target, activeEnergy: nil, workoutEnergy: nil)) : nil
     }
     var currentTargetCalories: Double? { targetCalories(on: now) }
     var remaining: Int? { currentTargetCalories.map { Int($0) - consumed } }

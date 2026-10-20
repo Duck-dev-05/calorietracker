@@ -334,19 +334,21 @@ struct MealEditorScreen: View {
                 Button("Delete", role: .destructive) { if let existing, diary.transaction({ $0.savedMeals?.removeAll { $0.id == existing.id } }) { dismiss() } }
                 Button("Cancel", role: .cancel) { }
             } message: { Text("Your logged food and planned meals are kept. Only this reusable meal is removed.") }
-        }.interactiveDismissDisabled(dirty).safeAreaInset(edge: .bottom, spacing: 0) {
-            EditorActionBar(title: existing == nil ? "Save meal" : "Save changes", enabled: valid,
+        }.interactiveDismissDisabled(dirty || diary.isSaving).safeAreaInset(edge: .bottom, spacing: 0) {
+            EditorActionBar(title: existing == nil ? "Save meal" : "Save changes", enabled: valid && !diary.isSaving,
                 hint: valid ? "Saves to Meals. Log or plan it afterwards." : "Add a name, ingredients and valid calories.", action: save)
         }.onAppear { if !loaded { nutrition = existing?.nutrition; name = existing?.name ?? ""; ingredients = existing?.detail ?? ""; vegetarian = existing?.vegetarian ?? false; loaded = true } }
     }
     private func save() {
-        guard valid, let calories = validCalories else { return }
+        guard valid, !diary.isSaving, let calories = validCalories else { return }
         var meal = Meal(name: name.trimmingCharacters(in: .whitespacesAndNewlines), detail: ingredients.trimmingCharacters(in: .whitespacesAndNewlines), calories: calories, vegetarian: vegetarian, nutrition: nutrition)
         if let existing { meal.id = existing.id }
-        if diary.transaction({ saved in
-            var meals = saved.savedMeals ?? []
-            if let index = meals.firstIndex(where: { $0.id == meal.id }) { meals[index] = meal } else { meals.append(meal) }
-            saved.savedMeals = meals
-        }) { onSave?(meal); dismiss() }
+        Task {
+            if await diary.transactionAsync({ saved in
+                var meals = saved.savedMeals ?? []
+                if let index = meals.firstIndex(where: { $0.id == meal.id }) { meals[index] = meal } else { meals.append(meal) }
+                saved.savedMeals = meals
+            }) { onSave?(meal); dismiss() }
+        }
     }
 }

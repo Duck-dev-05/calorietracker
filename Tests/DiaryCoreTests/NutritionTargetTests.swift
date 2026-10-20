@@ -56,7 +56,7 @@ final class NutritionTargetTests: XCTestCase {
         let target = NutritionTarget(effectiveDay: "2026-10-20", calories: 2670, allocation: MacroAllocation(protein: 25, carbohydrate: 50, fat: 25), method: "mifflin-st-jeor-v1", estimate: estimate)
         var snapshot = DiarySnapshot.empty; snapshot.targets = [target]
         let restored = try DiarySnapshot.decode(snapshot.encoded())
-        XCTAssertEqual(restored.targets, [target]); XCTAssertEqual(restored.schemaVersion, 4)
+        XCTAssertEqual(restored.targets, [target]); XCTAssertEqual(restored.schemaVersion, 5)
         snapshot.targets = [target, target]; XCTAssertThrowsError(try snapshot.encoded())
         snapshot.targets = [NutritionTarget(effectiveDay: "bad", calories: 2000, allocation: nil, method: "manual-v1")]
         XCTAssertThrowsError(try snapshot.encoded())
@@ -76,7 +76,7 @@ final class NutritionTargetTests: XCTestCase {
             XCTAssertEqual(diary.currentTargetCalories, 2000); XCTAssertEqual(diary.targetCalories(on: future), 2200)
             XCTAssertNil(diary.targetCalories(on: yesterday))
             XCTAssertEqual(try Data(contentsOf: XCTUnwrap(diary.lastArchiveURL)), original)
-            XCTAssertEqual(try DiarySnapshot.decode(Data(contentsOf: path)).schemaVersion, 4)
+            XCTAssertEqual(try DiarySnapshot.decode(Data(contentsOf: path)).schemaVersion, 5)
             XCTAssertEqual(Diary(url: path, account: account).targetRecords, diary.targetRecords)
         }
     }

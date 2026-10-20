@@ -11,6 +11,9 @@ struct NutritionDraft: Equatable {
     var carbohydrate = ""
     var fat = ""
     var source = "Manual entry"
+    var provenance: NutritionProvenance? = nil
+    var mapping: PortionMapping? = nil
+    var recipe: RecipeSnapshot? = nil
     private var original: NutritionSnapshot?
 
     init(_ original: NutritionSnapshot? = nil, legacyCalories: Int? = nil) {
@@ -23,7 +26,7 @@ struct NutritionDraft: Equatable {
             protein = original.referenceNutrients.protein.map(Self.text) ?? ""
             carbohydrate = original.referenceNutrients.carbohydrate.map(Self.text) ?? ""
             fat = original.referenceNutrients.fat.map(Self.text) ?? ""
-            source = original.source
+            source = original.source; provenance = original.provenance; mapping = original.mapping; recipe = original.recipe
         } else if let legacyCalories { calories = Self.text(Double(legacyCalories)) }
     }
     static func text(_ value: Double) -> String {
@@ -55,7 +58,7 @@ struct NutritionDraft: Equatable {
             carbohydrate: try resolved(carbohydrate, original: original?.referenceNutrients.carbohydrate),
             fat: try resolved(fat, original: original?.referenceNutrients.fat))
         let result = NutritionSnapshot(referenceQuantity: reference, referenceUnit: referenceUnit, referenceNutrients: nutrients,
-            quantity: amount, unit: unit, source: source.trimmingCharacters(in: .whitespacesAndNewlines), sourceMealID: original?.sourceMealID)
+            quantity: amount, unit: unit, source: source.trimmingCharacters(in: .whitespacesAndNewlines), sourceMealID: original?.sourceMealID, provenance: provenance, mapping: mapping, recipe: recipe)
         _ = try result.roundedCalories()
         return result
     }

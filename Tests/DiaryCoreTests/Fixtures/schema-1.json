@@ -1,0 +1,19 @@
+{
+  "profile": {
+    "name": "Fixture journal",
+    "height": 175.125,
+    "weight": 58.5123456789,
+    "goal": "Maintain",
+    "preferences": "Balanced"
+  },
+  "foods": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Historical label",
+      "calories": 250,
+      "date": 700000000,
+      "category": "Lunch"
+    }
+  ],
+  "schemaVersion": 1
+}

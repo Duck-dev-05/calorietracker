@@ -13,14 +13,18 @@ struct ProfileScreen: View {
     private var signedInProfile: some View {
         List {
             Section {
-                HStack(alignment: .top, spacing: 14) {
+                NavigationLink(destination: PersonalDetailsScreen()) {
+                    HStack(alignment: .center, spacing: 14) {
                         AccountAvatar(size: 54)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(account.session?.displayName ?? "Your account").font(.headline).fixedSize(horizontal: false, vertical: true)
                             Text(account.session?.email ?? "").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                            Text(account.session?.providerName ?? "").font(.caption).foregroundStyle(NourishStyle.accent)
+                            Text("View personal details").font(.caption).foregroundStyle(NourishStyle.accent)
                         }
-                }.padding(.vertical, 8)
+                    }.padding(.vertical, 8)
+                }
+                .accessibilityLabel("Personal details for \(account.session?.displayName ?? "your account")")
+                .accessibilityHint("Opens your name, measurements and activity settings")
                 Button {
                     showingAccountSecurity = true
                 } label: {

@@ -293,7 +293,7 @@ Implemented safeguards stay mandatory. Priority is based on impact, not phase nu
 This ordering supersedes older feature-creation priorities elsewhere in this document. Implemented estimate, target, macro, portion, planner and summary pages need validation rather than recreation.
 
 1. **Verify Health round trip on the actual iPhone (critical):** enter reviewed height and weight, allow write access, save each to Health, inspect dated Nourish-source records, refresh and review import. Confirm existing records remain and retrying a reviewed save does not create duplicates. Medical ID is not a supported import source.
-2. **Simplify both-measurement entry (high, not implemented):** extend Personal Details with optional combined height/weight review and actual measurement dates. Distinguish local Save from Health sharing. Report success/failure separately for each measurement and retry only failed writes. Local storage and HealthKit cannot be treated as one atomic commit.
+2. **Verify combined measurement entry (implemented in 0.19.0; high acceptance):** extend Personal Details with optional combined height/weight review and actual measurement dates. Distinguish local Save from Health sharing. Report success/failure separately for each measurement and retry only failed writes. Local storage and HealthKit cannot be treated as one atomic commit.
 3. **Protect the existing journal (critical verification):** export backup, update a populated installation, verify diary/meals/weights/targets, test restore and failed saves. Verify schema-3 migration to schema 4 and preserve original archives.
 4. **Verify accounts and finish lifecycle:** local registration/relogin/lockout, Google restore/sign-out, direct credential repository tests, current-password-protected password change and reviewed local-account deletion. Shared diary remains disclosed; no roles.
 5. **Verify completed nutrition flows:** estimates, dated targets, macro allocation, portion scaling, incomplete macro coverage, target history and daily summaries. Keep Health activity separate from targets until accounting is defined and tested.
@@ -465,6 +465,11 @@ Metric pages now refresh on opening and returning to the foreground, show an act
 Verified code baseline: 0.18.5 (34). [Configuration tests, core tests and IPA packaging passed](https://github.com/Duck-dev-05/calorietracker/actions/runs/39367708576).
 Google avatar/name display was observed in a user screenshot; this does not establish all authentication lifecycle checks.
 Personal Details has account identity, avatar navigation, a separate Account & security button, Health reading previews and the 26-type browser. Metric screens explain missing records and refresh on opening/foreground return.
-Height/weight sharing is currently separate per metric. A combined review/save flow is planned, not implemented.
+Height/weight sharing supports both the existing per-metric screens and the new combined review/save flow in 0.19.0.
 A successful real-device Health write/read/import round trip has not been recorded. Medical ID fields are not available through the supported HealthKit interface.
 This audit changes documentation only; no new application behavior or version is introduced.
+
+
+### Combined measurements — 0.19.0 (35)
+
+Implemented Height & weight from Profile and Personal Details. Select either/both measurements, review actual dates, save locally and optionally share to Apple Health. Local commit is atomic and rejects stale/newer conflicting measurements; Health writes have separate results and retry skips successful records using the existing stable sync identities. No Health writes follow a failed local save. Medical ID is unchanged. Weight updates the current profile rather than adding a dated Progress entry; height date is used for Health sharing only. Existing per-metric sharing remains available. Section 9 step 2 is now implemented; device round-trip and partial-failure acceptance remain pending.

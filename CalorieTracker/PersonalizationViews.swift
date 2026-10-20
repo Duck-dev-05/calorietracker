@@ -124,6 +124,9 @@ struct PersonalDetailsScreen: View {
                 Text("A journal name is optional and does not change your sign-in account.")
             }
             Section {
+                NavigationLink(destination: CombinedMeasurementsScreen()) {
+                    Label("Add height & weight", systemImage: "ruler")
+                }
                 NumberDraftField(title: "Height (cm)", text: $height, range: 80...250, isOptional: true, placeholder: "Optional")
                 healthReading(.height)
                 NumberDraftField(title: "Weight (kg)", text: $weight, range: 20...400, isOptional: true, placeholder: "Optional")

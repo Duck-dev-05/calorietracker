@@ -38,6 +38,9 @@ struct ProfileScreen: View {
                 }.padding(.vertical, 6)
             }
             Section("Personal settings") {
+                NavigationLink(destination: CombinedMeasurementsScreen()) {
+                    Label("Height & weight", systemImage: "ruler")
+                }
                 NavigationLink(destination: PersonalDetailsScreen()) { RouteRow(title: "Personal details", subtitle: "Name, measurements and activity", icon: "person.crop.circle", showsChevron: false) }
                 NavigationLink(destination: GoalsScreen()) { RouteRow(title: "Goals & calorie target", subtitle: diary.profile.goal.isEmpty ? "Set your daily target" : diary.profile.goal, icon: "target", showsChevron: false) }
                 NavigationLink(destination: PreferencesScreen()) { RouteRow(title: "Food preferences", subtitle: diary.profile.preferences.isEmpty ? "Diet and ingredient preferences" : diary.profile.preferences, icon: "fork.knife", showsChevron: false) }

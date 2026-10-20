@@ -222,3 +222,8 @@ Replaced numbered cards and the large bottom save panel with a compact native fo
 ### Personal details Health visibility — 0.18.4 (33)
 
 Personal Details now shows readable Health height and weight beside saved profile fields, with measurement dates, sources and review/import links. Includes today's steps and active energy, connection/refresh controls, and an expandable browser for all 26 supported Health types. Opening the page refreshes readings when Health refresh is enabled. Displaying readings does not overwrite profile drafts or automatically share measurements. Age and journal name remain manual; activity level is not inferred. On-device permissions, readability and layout need verification.
+
+
+### Combined measurements — 0.19.0 (35)
+
+Implemented Height & weight from Profile and Personal Details. Select either/both measurements, review actual dates, save locally and optionally share to Apple Health. Local commit is atomic and rejects stale/newer conflicting measurements; Health writes have separate results and retry skips successful records using the existing stable sync identities. No Health writes follow a failed local save. Medical ID is unchanged. Weight updates the current profile rather than adding a dated Progress entry; height date is used for Health sharing only. Existing per-metric sharing remains available. Section 9 step 2 is now implemented; device round-trip and partial-failure acceptance remain pending.
